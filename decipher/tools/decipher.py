@@ -88,7 +88,9 @@ def decipher_train(
     plot_every_k_epochs=-1,
     plot_kwargs=None,
     device="cpu",
+    batch_key=None,
 ):
+#Addition: batch_key = None as a parameter, None lets user call without passing batch_key
     """Train a decipher model.
 
     Parameters
@@ -139,12 +141,13 @@ def decipher_train(
     if plot_kwargs is None:
         plot_kwargs = dict()
 
-    decipher_config.initialize_from_adata(adata_train)
+    decipher_config.initialize_from_adata(adata_train, batch_key=batch_key) #Pass batch_key
 
     dataloader_train = make_data_loader_from_adata(
-        adata_train, decipher_config.batch_size, drop_last=True
-    )
-    dataloader_val = make_data_loader_from_adata(adata_val, decipher_config.batch_size)
+        adata_train, decipher_config.batch_size, batch_key = batch_key, drop_last=True
+    ) # Include batch codes as second tensor
+    dataloader_val = make_data_loader_from_adata(adata_val, decipher_config.batch_size,
+                                                 batch_key = batch_key) #Batch labels needed in tuple
 
     decipher = Decipher(
         config=decipher_config,

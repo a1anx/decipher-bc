@@ -87,23 +87,17 @@ def decipher_load_model(adata):
     return model
 
 
-def make_data_loader_from_adata(adata, batch_size=64, context_discrete_keys=None, **kwargs):
+def make_data_loader_from_adata(adata, batch_size=64, batch_key=None, **kwargs):
     """Create a PyTorch DataLoader from an AnnData object."""
     genes = torch.FloatTensor(get_dense_X(adata))
     params = [genes]
-    context_tensors = []
-    if context_discrete_keys is None:
-        context_discrete_keys = []
-
-    for key in context_discrete_keys:
-        t = torch.IntTensor(adata.obs[key].astype("category").cat.codes.values).long()
-        encoded = torch.nn.functional.one_hot(t).float()
-        context_tensors.append(encoded)
-
-    if context_tensors:
-        context = torch.cat(context_tensors, dim=-1)
-        params.append(context)
-
+    
+    if batch_key is not None:
+        batch_codes = torch.LongTensor(
+            adata.obs[batch_key].astype("category").cat.codes.values
+        ) #cat.codes converts batch label strings into integers
+        params.append(batch_codes) #pairs genes and batch IDS in the dataset
+ 
     return torch.utils.data.DataLoader(
         torch.utils.data.TensorDataset(*params),
         batch_size=batch_size,

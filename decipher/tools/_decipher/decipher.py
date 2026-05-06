@@ -22,6 +22,11 @@ class DecipherConfig:
     layers_v_to_z: Sequence = (64,)
     layers_z_to_x: Sequence = tuple()
 
+    # Define the embedding table 
+    n_batches: int = None # Starts unitialized
+    batch_emb_dim: int = 8 # Width of each embedding vector
+
+
     beta: float = 1e-1
     seed: int = 0
 
@@ -37,9 +42,13 @@ class DecipherConfig:
 
     _initialized_from_adata: bool = False
 
-    def initialize_from_adata(self, adata):
+    # EDIT: Add batch_key = None for batch correction
+    def initialize_from_adata(self, adata, batch_key = None):
         self.dim_genes = adata.shape[1]
         self.n_cells = adata.shape[0]
+        # Counts unique batches and stores in config, so __init__ knows how many rows to allocate in lookup table
+        if batch_key is not None:
+            self.n_batches = adata.obs[batch_key].nunique()
         self._initialized_from_adata = True
 
     def to_dict(self):
@@ -78,8 +87,11 @@ class Decipher(nn.Module):
         self.decoder_v_to_z = ConditionalDenseNN(
             self.config.dim_v, self.config.layers_v_to_z, [self.config.dim_z] * 2
         )
+        # EDIT: Applies Simple Contatneation of Batch Embedding
+        # #Changes size of first linear layer inside that network to dim_z + batch_emb_dim
         self.decoder_z_to_x = ConditionalDenseNN(
-            self.config.dim_z, config.layers_z_to_x, [self.config.dim_genes]
+            self.config.dim_z, config.layers_z_to_x, [self.config.dim_genes],
+            context_dim = config.batch_emb_dim,
         )
         self.encoder_x_to_z = ConditionalDenseNN(
             self.config.dim_genes, [128], [self.config.dim_z] * 2
@@ -89,6 +101,9 @@ class Decipher(nn.Module):
             [128],
             [self.config.dim_v, self.config.dim_v],
         )
+        # Creates learnable lookup table, where each batch gets its own row
+        # self allows PyTorch to track its parameters and include in the gradient updates
+        self.batch_embedding = nn.Embedding(config.n_batches, config.batch_emb_dim)
 
         self._epsilon = 1e-5
 
@@ -98,7 +113,8 @@ class Decipher(nn.Module):
     def device(self):
         return self.dummy_param.device
 
-    def model(self, x, context=None):
+    #Change: Added batch_labels (integer tensor that allows correct lookup of batch), removed context = None
+    def model(self, x, batch_labels):
         pyro.module("decipher", self)
 
         self.theta = pyro.param(
@@ -106,6 +122,8 @@ class Decipher(nn.Module):
             x.new_ones(self.config.dim_genes),
             constraint=constraints.positive,
         )
+        # Converts raw integers into matrix of shape (n_cells, batch_embd_dim)
+        batch_emb = self.batch_embedding(batch_labels)
 
         with pyro.plate("batch", len(x)), poutine.scale(scale=1.0):
             with poutine.scale(scale=self.config.beta):
@@ -117,11 +135,11 @@ class Decipher(nn.Module):
                     raise ValueError("Invalid prior, must be normal or gamma")
                 v = pyro.sample("v", prior)
 
-            z_loc, z_scale = self.decoder_v_to_z(v, context=context)
+            z_loc, z_scale = self.decoder_v_to_z(v) # Removed context = context since old parameter is gone
             z_scale = softplus(z_scale)
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
 
-            mu = self.decoder_z_to_x(z, context=context)
+            mu = self.decoder_z_to_x(z, context=batch_emb)
             mu = softmax(mu, dim=-1)
             library_size = x.sum(axis=-1, keepdim=True)
             # Parametrization of Negative Binomial by the mean and inverse dispersion
@@ -134,18 +152,19 @@ class Decipher(nn.Module):
             x_dist = dist.NegativeBinomial(total_count=self.theta + self._epsilon, logits=logit)
             pyro.sample("x", x_dist.to_event(1), obs=x)
 
-    def guide(self, x, context=None):
+    #Change: Added batch_labels (integer tensor that allows correct lookup of batch), removed context = None
+    def guide(self, x, batch_labels):
         pyro.module("decipher", self)
         with pyro.plate("batch", len(x)), poutine.scale(scale=1.0):
             x = torch.log1p(x)
 
-            z_loc, z_scale = self.encoder_x_to_z(x, context=context)
+            z_loc, z_scale = self.encoder_x_to_z(x) # Removed context = context since old parameter is gone
             z_scale = softplus(z_scale) + self._epsilon
             posterior_z = dist.Normal(z_loc, z_scale).to_event(1)
             z = pyro.sample("z", posterior_z)
 
             zx = torch.cat([z, x], dim=-1)
-            v_loc, v_scale = self.encoder_zx_to_v(zx, context=context)
+            v_loc, v_scale = self.encoder_zx_to_v(zx) # Removed context = context since old parameter is gone
             v_scale = softplus(v_scale) + self._epsilon
             with poutine.scale(scale=self.config.beta):
                 if self.config.prior == "gamma":
@@ -181,11 +200,22 @@ class Decipher(nn.Module):
         v_loc, _ = self.encoder_zx_to_v(zx)
         return v_loc.detach().numpy(), z_loc.detach().numpy()
 
-    def impute_gene_expression_numpy(self, x):
+    # Add batch_labels as a parameter
+    def impute_gene_expression_numpy(self, x, batch_labels):
         if type(x) == np.ndarray:
             x = torch.tensor(x, dtype=torch.float32)
-        z_loc, _, _, _ = self.guide(x)
-        mu = self.decoder_z_to_x(z_loc)
+        #Convert numpy array into PyTorch integer tensor (64-bit is required for embedding lookups)
+        if type(batch_labels) == np.ndarray:
+            batch_labels = torch.tensor(batch_labels,dtype=torch.long)
+        
+        #Need to compute this explicitly because we're calling encoder directly in the next line
+        x_log = torch.log1p(x)
+        #Because of added batch_labels parameter, need to call encoder explicitly
+        z_loc, _ = self.encoder_x_to_z(x_log)
+        #Look up learned batch vectors and then convert to matrix of shape (n_cells, batch_emb_dim) 
+        batch_emb = self.batch_embedding(batch_labels)
+        # Run decoder with batch context injected
+        mu = self.decoder_z_to_x(z_loc, context=batch_emb)
         mu = softmax(mu, dim=-1)
         library_size = x.sum(axis=-1, keepdim=True)
         return (library_size * mu).detach().numpy()
