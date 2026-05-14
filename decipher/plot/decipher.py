@@ -171,4 +171,5 @@ def decipher(
                 ax.set_xlabel(x_label)
             else:
                 ax.set_xlabel(None)
+    fig.tight_layout()
     return fig

@@ -37,6 +37,7 @@ class DecipherConfig:
     # ---- BATCH ----
     n_batches: int = 0
     dim_batch_embedding: int = 8
+    batch_key: Optional[str] = None
     # -----------------
     
     prior: str = "normal"

@@ -1,0 +1,9 @@
+# Large data files
+*.h5ad
+
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc

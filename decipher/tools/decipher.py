@@ -257,7 +257,11 @@ def decipher_train(
         if plot_every_k_epochs > 0 and (epoch % plot_every_k_epochs == 0):
             _decipher_to_adata(decipher, adata)
             plot_decipher_v(adata, basis="decipher_v", **plot_kwargs)
-            gif_maker.add_image(plt.gcf())
+            fig = plt.gcf()
+            # Force equal axis scaling so V1 and V2 appear proportional
+            for ax in fig.axes:
+                ax.set_aspect("equal", adjustable="datalim")
+            gif_maker.add_image(fig)
             
             if is_notebook():
                 # FIX: Use the modern IPython display path
