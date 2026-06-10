@@ -1,0 +1,17 @@
+# Data files
+*.h5ad
+
+# Trained model artifacts
+_decipher_models/
+trained_models/
+*.pt
+
+# Python
+__pycache__/
+.venv*/
+
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
