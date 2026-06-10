@@ -20,40 +20,6 @@ import anndata as ad
 #decipher train is training function and DecipherConfig holds hyperparameters
 from decipher.tools import decipher_train, DecipherConfig 
 
-#alpha_vec = [0.01, 0.05, 0.1]
-adata_base = sc.read("newadata_delta/adata_base.h5ad")
-adata_0_01 = sc.read("newadata_delta/adata_shift_delta_0.01.h5ad")
-adata_0_05 = sc.read("newadata_delta/adata_shift_delta_0.05.h5ad")
-adata_0_1 = sc.read("newadata_delta/adata_shift_delta_0.1.h5ad")
-
-
-def concat_adata(
-    adata_array, 
-    output_name,
-    #k_clusters = 20,
-    batch_keys=None
-    ):
-    adata_combined = ad.concat(
-        adata_array,
-        axis=0,                                 # concatenate cells
-        join="outer",                           # union of var names (or use "inner")
-        label="batch" if batch_keys else None,  # Add option to set label as batch
-        keys=batch_keys,
-        merge="same"                            # requires identical obsm keys
-    )
-    # k_means = KMeans(k_clusters)
-    # latent_z = adata_combined.obsm["latent_z"]
-    # k_means.fit(latent_z)
-    # adata_combined.obs["cluster_latent"] = k_means.labels_
-    # # for each cluster, order the other clusters by distance of their kmeans center
-    # cluster_centers = k_means.cluster_centers_
-    # cluster_rank = np.argsort(
-    #     np.linalg.norm(cluster_centers[:, None] - cluster_centers[None, :], axis=2)
-    # )
-    # adata_combined.uns["cluster_rank"] = cluster_rank[:, 1:]
-    adata_combined.write(f"newadata_delta/adata_combined_{output_name}.h5ad")
-    _LOGGER.info(f"Combined adata saved: newadata_delta/adata_combined_{output_name}.h5ad")
-    return adata_combined
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,17 +61,12 @@ def run_and_save(adata_combined, suffix, out_folder, adata_folder, k_clusters=20
 if __name__ == "__main__":
     seed = 0
     out_folder = "concat_figures"
-    adata_folder = "concat_adata"
+    adata_folder = "concat_adata_may"
     os.makedirs(out_folder, exist_ok=True)
-    os.makedirs(adata_folder, exist_ok=True)
+    
+    adata_combined = sc.read_h5ad('concat_adata_may/adata_combined_alpha_0.1_0.3_0.5_0.7_1.0.h5ad')
 
     logging.basicConfig(level=logging.INFO)
-    adata_array = [adata_base, adata_0_01, adata_0_05, adata_0_1]
-    adata_combined = concat_adata(
-        adata_array=adata_array,
-        output_name="2_delta",
-        batch_keys=["base", "delta_0.01", "delta_0.05", "delta_0.1"]
-    )
 
     # Native decipher (no batch correction)
     decipher_train(adata_combined, decipher_config=DecipherConfig())
