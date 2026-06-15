@@ -188,4 +188,4 @@ if __name__ == "__main__":
     adata_folder = "Simulated Adata/v-to-z"
     shift_magnitudes_v_to_z(adata_folder,
                      shifts = shifts,
-                     mag = 1)
+                     mag = 0.6)

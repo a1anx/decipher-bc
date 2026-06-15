@@ -37,7 +37,7 @@ def decipher_z(
     if subset_of_zs is None:
         subset_of_zs = list(range(1, dim_z + 1))
 
-    return sc.pl.embedding(
+    fig = sc.pl.embedding(
         adata,
         basis=basis,
         color=[f"z{i}" for i in subset_of_zs],
@@ -51,6 +51,15 @@ def decipher_z(
         **kwargs,
     )
 
+    # Square each panel so the x-axis is as long as the y-axis (skip colorbars)
+    for ax in fig.axes:
+        if ax._label == "<colorbar>":
+            continue
+        ax.set_box_aspect(1)
+
+    fig.tight_layout()
+    return fig
+
 
 def decipher(
     adata,
@@ -63,7 +72,7 @@ def decipher(
     x_label="Decipher 1",
     y_label="Decipher 2",
     axis_type="arrow",
-    figsize=(3.5, 3.5),
+    figsize=(7, 7),
     vmax=lambda xs: np.quantile(xs[~np.isnan(xs)], 0.99),
     **kwargs,
 ):
@@ -156,6 +165,16 @@ def decipher(
             existing_title = ax.get_title()
             ax.set_title(f"{existing_title}{batch_suffix}")
         
+        ax.set_box_aspect(1)
+        
+        #shrink the legend marker dots (text size handled by legend_fontsize)
+        leg = ax.get_legend()
+        if leg is not None:
+            handles = getattr(leg, "legend_handles", None) or getattr(leg, "legendHandles", [])
+            for h in handles:
+                if hasattr(h, "set_markersize"):
+                    h.set_markersize(4)
+        
         if axis_type == "arrow":
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
@@ -171,5 +190,6 @@ def decipher(
                 ax.set_xlabel(x_label)
             else:
                 ax.set_xlabel(None)
+                
     fig.tight_layout()
     return fig
