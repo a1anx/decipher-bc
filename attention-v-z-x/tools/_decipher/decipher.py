@@ -14,7 +14,10 @@ from torch.nn.functional import softmax, softplus
 
 # NEW IMPORT: BatchCorrectedDecoder added alongside BatchCorrectedVToZ so both v->z and z->x
 # steps can be batch-conditioned, creating a fully consistent generative model
-from decipher.tools._decipher.module import BatchCorrectedDecoder, BatchCorrectedVToZ, ConditionalDenseNN
+# Changed to relative import: BatchCorrectedDecoder and BatchCorrectedVToZ are defined in this
+# package's own module.py, not in base decipher-bc, so the absolute import caused ImportError.
+# from decipher.tools._decipher.module import BatchCorrectedDecoder, BatchCorrectedVToZ, ConditionalDenseNN
+from .module import BatchCorrectedDecoder, BatchCorrectedVToZ, ConditionalDenseNN
 
 
 @dataclass(unsafe_hash=True)
