@@ -7,7 +7,7 @@ from .trajectory_inference import (
     TConfig,
 )
 from .basis_decomposition import basis_decomposition, disruption_scores
-from decipher.tools.decipher import (
+from decipher_vz.tools.decipher import (
     decipher_train,
     decipher_rotate_space,
     decipher_gene_imputation,

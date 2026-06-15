@@ -3,12 +3,12 @@ import logging
 import numpy as np
 import pandas as pd
 
-from decipher.tools._basis_decomposition.inference import InferenceMode
-from decipher.tools._basis_decomposition.run import (
+from decipher_vz.tools._basis_decomposition.inference import InferenceMode
+from decipher_vz.tools._basis_decomposition.run import (
     compute_basis_decomposition as run_compute_basis_decomposition,
     get_basis,
 )
-from decipher.utils import is_notebook
+from decipher_vz.utils import is_notebook
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

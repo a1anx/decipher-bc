@@ -12,7 +12,7 @@ import torch.utils.data
 from torch.distributions import constraints
 from torch.nn.functional import softmax, softplus
 
-from decipher.tools._decipher.module import ConditionalDenseNN
+from decipher_vz.tools._decipher.module import ConditionalDenseNN
 
 
 @dataclass(unsafe_hash=True)
@@ -33,13 +33,32 @@ class DecipherConfig:
 
     dim_genes: int = None
     n_cells: int = None
+    
+    # ---- BATCH ----
+    n_batches: int = 0
+    dim_batch_embedding: int = 8
+    batch_key: Optional[str] = None
+    # -----------------
+    
     prior: str = "normal"
 
     _initialized_from_adata: bool = False
-
-    def initialize_from_adata(self, adata):
+    
+    # updated for batch
+    def initialize_from_adata(self, adata, batch_key = "batch"):
         self.dim_genes = adata.shape[1]
         self.n_cells = adata.shape[0]
+        
+        # Save the key so the model instance knows what it was trained on
+        self.batch_key = batch_key
+        
+        # --- AUTOMATIC BATCH COUNTING ---
+        if batch_key in adata.obs:
+            self.n_batches = adata.obs[batch_key].astype("category").cat.categories.size
+        else:
+            self.n_batches = 0
+        # --------------------------------
+        
         self._initialized_from_adata = True
 
     def to_dict(self):
@@ -74,13 +93,15 @@ class Decipher(nn.Module):
 
         self.config = config
         self.dummy_param = nn.Parameter(torch.empty(0))
-
-        self.decoder_v_to_z = ConditionalDenseNN(
-            self.config.dim_v, self.config.layers_v_to_z, [self.config.dim_z] * 2
+        
+        # ---- batch embedding ----
+        self.batch_emb = torch.nn.Embedding(
+            num_embeddings=config.n_batches, 
+            embedding_dim=config.dim_batch_embedding
         )
-        self.decoder_z_to_x = ConditionalDenseNN(
-            self.config.dim_z, config.layers_z_to_x, [self.config.dim_genes]
-        )
+        # -------------------------
+        
+        # 2. Encoder
         self.encoder_x_to_z = ConditionalDenseNN(
             self.config.dim_genes, [128], [self.config.dim_z] * 2
         )
@@ -89,6 +110,22 @@ class Decipher(nn.Module):
             [128],
             [self.config.dim_v, self.config.dim_v],
         )
+        
+        # 3. Decoder
+        ## v -> z (now batch-conditioned, was pure biology)
+        self.decoder_v_to_z = ConditionalDenseNN(
+            input_dim=self.config.dim_v + self.config.dim_batch_embedding,
+            hidden_dims=self.config.layers_v_to_z,
+            output_dims=[self.config.dim_z] * 2,
+        )
+        ## z -> x (reconstruction)
+        # Input is now the biological latent z + the technical batch embedding
+        self.decoder_z_to_x = ConditionalDenseNN(
+            input_dim=self.config.dim_z + self.config.dim_batch_embedding, 
+            hidden_dims=config.layers_z_to_x, 
+            output_dims=[self.config.dim_genes]
+        )
+        
 
         self._epsilon = 1e-5
 
@@ -98,7 +135,7 @@ class Decipher(nn.Module):
     def device(self):
         return self.dummy_param.device
 
-    def model(self, x, context=None):
+    def model(self, x, batch_idx=None):
         pyro.module("decipher", self)
 
         self.theta = pyro.param(
@@ -106,6 +143,11 @@ class Decipher(nn.Module):
             x.new_ones(self.config.dim_genes),
             constraint=constraints.positive,
         )
+        
+        # Just in case batch_idx is not provided during a naked model() call
+        if batch_idx is None:
+            batch_idx = x.new_zeros(x.shape[0]).long()
+        batch_vec = self.batch_emb(batch_idx)
 
         with pyro.plate("batch", len(x)), poutine.scale(scale=1.0):
             with poutine.scale(scale=self.config.beta):
@@ -116,12 +158,17 @@ class Decipher(nn.Module):
                 else:
                     raise ValueError("Invalid prior, must be normal or gamma")
                 v = pyro.sample("v", prior)
-
-            z_loc, z_scale = self.decoder_v_to_z(v, context=context)
+            
+            # v -> z prior, now conditioned on batch
+            v_combined = torch.cat([v, batch_vec], dim=-1)
+            z_loc, z_scale = self.decoder_v_to_z(v_combined)
             z_scale = softplus(z_scale)
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
 
-            mu = self.decoder_z_to_x(z, context=context)
+            # z -> x reconstruction, conditioned on batch (unchanged)
+            z_combined = torch.cat([z, batch_vec], dim=-1)
+            mu = self.decoder_z_to_x(z_combined)
+            
             mu = softmax(mu, dim=-1)
             library_size = x.sum(axis=-1, keepdim=True)
             # Parametrization of Negative Binomial by the mean and inverse dispersion
@@ -134,18 +181,18 @@ class Decipher(nn.Module):
             x_dist = dist.NegativeBinomial(total_count=self.theta + self._epsilon, logits=logit)
             pyro.sample("x", x_dist.to_event(1), obs=x)
 
-    def guide(self, x, context=None):
+    def guide(self, x, batch_idx=None):
         pyro.module("decipher", self)
         with pyro.plate("batch", len(x)), poutine.scale(scale=1.0):
             x = torch.log1p(x)
 
-            z_loc, z_scale = self.encoder_x_to_z(x, context=context)
+            z_loc, z_scale = self.encoder_x_to_z(x)
             z_scale = softplus(z_scale) + self._epsilon
             posterior_z = dist.Normal(z_loc, z_scale).to_event(1)
             z = pyro.sample("z", posterior_z)
 
             zx = torch.cat([z, x], dim=-1)
-            v_loc, v_scale = self.encoder_zx_to_v(zx, context=context)
+            v_loc, v_scale = self.encoder_zx_to_v(zx)
             v_scale = softplus(v_scale) + self._epsilon
             with poutine.scale(scale=self.config.beta):
                 if self.config.prior == "gamma":

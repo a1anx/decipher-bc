@@ -57,8 +57,17 @@ class GIFMaker:
         """
         fig.set_dpi(self.dpi)
         fig.canvas.draw()
-        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8")
-        image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        # tostring is deprecated.  Modern matplotlib uses buffer_rgba
+        # image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8")
+        # 1. Get the 4-channel buffer
+        rgba_buffer = fig.canvas.buffer_rgba()
+
+        # 2. Convert to numpy and slice it to 3 channels (RGB)
+        raw_data = np.frombuffer(rgba_buffer, dtype="uint8").reshape(
+            fig.canvas.get_width_height()[::-1] + (4,)
+        )[..., :3]
+
+        image = raw_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
         self.images.append(Image.fromarray(image))
 
     def save_gif(self, filename):

@@ -189,4 +189,3 @@ if __name__ == "__main__":
     shift_magnitudes_v_to_z(adata_folder,
                      shifts = shifts,
                      mag = 1)
-    

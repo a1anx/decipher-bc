@@ -113,6 +113,11 @@ def decipher(
     sc.pl.embedding
 
     """
+    # 1. RETRIEVE BATCH INFO
+    # We look into the metadata where we stored the batch_key during training
+    decipher_uns = adata.uns.get("decipher", {})
+    trained_batch_key = decipher_uns.get("config", {}).get("batch_key", None)
+    
     with plt.rc_context({"figure.figsize": figsize}):
         fig = sc.pl.embedding(
             sc.pp.subsample(adata, subsample_frac, copy=True),
@@ -125,16 +130,32 @@ def decipher(
             vmax=vmax if color is not None else None,
             **kwargs,
         )
+        
     ax = fig.axes[0]
+    
+    # 2. UPDATE TITLES
     if color is None or isinstance(color, str):
-        color = [color]
+        color_list = [color]
+    else:
+        color_list = color
+    
+    # Create the batch label string
+    batch_suffix = f" (Batch: {trained_batch_key})" if trained_batch_key else " (No Batch Correction)"
 
-    if len(color) == 1:
-        ax.set_title(title)
 
     for i, ax in enumerate(fig.axes):
         if ax._label == "<colorbar>":
             continue
+        
+        # If there's only one plot, use the 'title' parameter or the batch info
+        if len(color_list) == 1:
+            current_title = title if title else (color_list[0] if color_list[0] else "Decipher")
+            ax.set_title(f"{current_title}{batch_suffix}")
+        else:
+            # If there are multiple subplots, append batch info to each existing title
+            existing_title = ax.get_title()
+            ax.set_title(f"{existing_title}{batch_suffix}")
+        
         if axis_type == "arrow":
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
@@ -150,4 +171,5 @@ def decipher(
                 ax.set_xlabel(x_label)
             else:
                 ax.set_xlabel(None)
+    fig.tight_layout()
     return fig

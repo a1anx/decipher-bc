@@ -8,8 +8,8 @@ import scanpy as sc
 import scipy.spatial
 import torch.nn.functional
 
-from decipher.tools._decipher.data import decipher_load_model
-from decipher.utils import create_decipher_uns_key
+from decipher_vz.tools._decipher.data import decipher_load_model
+from decipher_vz.utils import create_decipher_uns_key
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

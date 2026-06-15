@@ -12,9 +12,9 @@ from pyro import poutine
 from pyro.infer import SVI, Trace_ELBO
 from tqdm import tqdm
 
-from decipher.plot.decipher import decipher as plot_decipher_v
-from decipher.tools._decipher import Decipher, DecipherConfig
-from decipher.tools._decipher.data import (
+from decipher_vz.plot.decipher import decipher as plot_decipher_v
+from decipher_vz.tools._decipher import Decipher, DecipherConfig
+from decipher_vz.tools._decipher.data import (
     decipher_load_model,
     decipher_save_model,
     make_data_loader_from_adata,
@@ -85,6 +85,7 @@ def _make_train_val_split(adata, val_frac, seed):
 def decipher_train(
     adata: sc.AnnData,
     decipher_config=DecipherConfig(),
+    batch_key: str = "batch",
     plot_every_k_epochs=-1,
     plot_kwargs=None,
     device="cpu",
@@ -97,6 +98,8 @@ def decipher_train(
         The annotated data matrix.
     decipher_config: DecipherConfig, optional
         Configuration for the decipher model.
+    batch_key: str, optional
+        The key in `adata.obs` that contains the batch labels. Default: "batch".
     plot_every_k_epochs: int, optional
         If > 0, plot the decipher space every `plot_every_k_epoch` epochs.
         Default: -1 (no plots).
@@ -126,26 +129,59 @@ def decipher_train(
             "Plotting decipher space every 5 epochs by default. "
             "Set `plot_every_k_epoch` to -2 to disable."
         )
+        
+    # --- ADD THIS SAFETY LOCK HERE ---
+    # Lock the batch categories globally so train and val splits share the exact same integer codes
+    if batch_key in adata.obs:
+        adata.obs[batch_key] = adata.obs[batch_key].astype("category")
+    # ---------------------------------
 
-    pyro.clear_param_store()
-    pyro.util.set_rng_seed(decipher_config.seed)
+    if is_notebook() and plot_every_k_epochs == -1:
+        plot_every_k_epochs = 5
+        # ...
 
+    # 1. Create splits FIRST (Original author's flow)
     _make_train_val_split(adata, decipher_config.val_frac, decipher_config.seed)
     train_idx = adata.obs["decipher_split"] == "train"
     val_idx = adata.obs["decipher_split"] == "validation"
     adata_train = adata[train_idx, :]
     adata_val = adata[val_idx, :]
 
+    # 2. SETUP CONFIG on adata_train (Original author's flow)
+    # n_cells will correctly reflect the training set size.
+    # n_batches will correctly count all global batches because of our safety lock above.
+    decipher_config.initialize_from_adata(adata_train, batch_key=batch_key)
+    
+    # 3. Save the batch_key to the MAIN adata uns, not just adata_train
+    # This ensures your plotting functions (which use the main adata) can find it
+    if "decipher" not in adata.uns:
+        adata.uns["decipher"] = {}
+    
+    # We update 'uns' on the full adata object
+    adata.uns["decipher"]["config"] = {"batch_key": batch_key}
+    
+    # 3. RESET PYRO
+    pyro.clear_param_store()
+    pyro.util.set_rng_seed(decipher_config.seed)
+
     if plot_kwargs is None:
         plot_kwargs = dict()
 
-    decipher_config.initialize_from_adata(adata_train)
-
+    # 4. Create Dataloaders
     dataloader_train = make_data_loader_from_adata(
-        adata_train, decipher_config.batch_size, drop_last=True
+        adata_train, 
+        decipher_config.batch_size, 
+        context_discrete_keys=[batch_key] if decipher_config.n_batches > 0 else None,
+        drop_last=True
     )
-    dataloader_val = make_data_loader_from_adata(adata_val, decipher_config.batch_size)
+    dataloader_val = make_data_loader_from_adata(
+        adata_val, 
+        decipher_config.batch_size,
+        context_discrete_keys=[batch_key] if decipher_config.n_batches > 0 else None,
+        drop_last=False
+    )
 
+    # 5. Iniatialize model
     decipher = Decipher(
         config=decipher_config,
     )
@@ -217,14 +253,20 @@ def decipher_train(
         last_train_elbo = train_elbo / train_elbo_n_obs
         if early_stopping(val_nll):
             break
-
+            
         if plot_every_k_epochs > 0 and (epoch % plot_every_k_epochs == 0):
             _decipher_to_adata(decipher, adata)
             plot_decipher_v(adata, basis="decipher_v", **plot_kwargs)
-            gif_maker.add_image(plt.gcf())
+            fig = plt.gcf()
+            # Force equal axis scaling so V1 and V2 appear proportional
+            for ax in fig.axes:
+                ax.set_aspect("equal", adjustable="datalim")
+            gif_maker.add_image(fig)
+            
             if is_notebook():
-                from IPython.core import display
-
+                # FIX: Use the modern IPython display path
+                from IPython import display
+                
                 display.clear_output(wait=True)
                 display.display(plt.gcf())
             else:
@@ -232,7 +274,7 @@ def decipher_train(
             plt.close()
 
     if is_notebook():
-        from IPython.core import display
+        from IPython import display
 
         display.clear_output()
         pbar.display()

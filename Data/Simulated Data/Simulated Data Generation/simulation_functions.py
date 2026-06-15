@@ -324,7 +324,6 @@ def simulation_correlated_shift_v_to_z(
     hole_size=0,
     n_holes=0,
     hole_density=0.0,
-    shift_type: str = "none",
     shift_z: float = 0.0,   # delta shift at v→z (latent space)
     shift_x: float = 0.0,   # delta shift at z→x (expression space)
 ) -> sc.AnnData:

@@ -9,8 +9,8 @@ import torch.distributions
 import torch.nn.functional
 import torch.utils.data
 
-from decipher.tools._decipher import Decipher, DecipherConfig
-from decipher.utils import DECIPHER_GLOBALS, create_decipher_uns_key
+from decipher_vz.tools._decipher import Decipher, DecipherConfig
+from decipher_vz.utils import DECIPHER_GLOBALS, create_decipher_uns_key
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -91,22 +91,21 @@ def make_data_loader_from_adata(adata, batch_size=64, context_discrete_keys=None
     """Create a PyTorch DataLoader from an AnnData object."""
     genes = torch.FloatTensor(get_dense_X(adata))
     params = [genes]
-    context_tensors = []
+    
     if context_discrete_keys is None:
         context_discrete_keys = []
 
     for key in context_discrete_keys:
-        t = torch.IntTensor(adata.obs[key].astype("category").cat.codes.values).long()
-        encoded = torch.nn.functional.one_hot(t).float()
-        context_tensors.append(encoded)
-
-    if context_tensors:
-        context = torch.cat(context_tensors, dim=-1)
-        params.append(context)
-
+        # 1. Convert the obs column to categorical codes (integers)
+        # 2. Keep it as .long() - DO NOT one-hot encode it here
+        t = torch.tensor(adata.obs[key].astype("category").cat.codes.values).long()
+        params.append(t)
     return torch.utils.data.DataLoader(
         torch.utils.data.TensorDataset(*params),
         batch_size=batch_size,
         shuffle=True,
         **kwargs,
     )
+    
+    
+    

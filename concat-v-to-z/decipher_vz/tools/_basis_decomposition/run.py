@@ -7,9 +7,9 @@ import torch
 from pyro.infer import Predictive, SVI, Trace_ELBO
 from tqdm import tqdm
 
-from decipher.tools._basis_decomposition.inference import get_inference_guide
-from decipher.tools._basis_decomposition.model import BasisDecomposition
-from decipher.tools.utils import EarlyStopping
+from decipher_vz.tools._basis_decomposition.inference import get_inference_guide
+from decipher_vz.tools._basis_decomposition.model import BasisDecomposition
+from decipher_vz.tools.utils import EarlyStopping
 
 
 def compute_basis_decomposition(
@@ -65,7 +65,8 @@ def compute_basis_decomposition(
             break
 
         if plot_every_k_epochs > 0 and epoch % plot_every_k_epochs == 0:
-            from IPython.core import display
+             # FIX: Use the modern IPython display path 
+            from IPython import display
 
             basis = model._last_basis.detach().numpy()
             plt.figure(figsize=(5, 2.5))
