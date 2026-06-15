@@ -314,6 +314,93 @@ def simulation_correlated_shift2(
     return adata_sim
 
 
+def simulation_correlated_shift_v_to_z(
+    n_samples=500,
+    n_genes=50,
+    seed=0,
+    sigma=0.03,
+    branch_prob=0.7,
+    k_clusters=20,
+    hole_size=0,
+    n_holes=0,
+    hole_density=0.0,
+    shift_type: str = "none",
+    shift_z: float = 0.0,   # delta shift at v→z (latent space)
+    shift_x: float = 0.0,   # delta shift at z→x (expression space)
+) -> sc.AnnData:
+    np.random.seed(seed=seed)
+
+
+    # ... trajectory construction unchanged ...
+    
+    chunk_size = np.array([1, hole_size] * n_holes + [1])
+    chunk_offset = np.cumsum(chunk_size) - chunk_size[0]
+    chunk_prob = np.array([1, hole_size * hole_density] * n_holes + [1])
+    chunk_prob = chunk_prob / chunk_prob.sum()
+    total_size = sum(chunk_size)
+    # sample which chunk the latent time is in
+    chunk = np.random.choice(np.arange(len(chunk_prob)), size=(n_samples,), p=chunk_prob)
+    # sample the latent time within the chunk
+    latent_t_chunk = np.random.uniform(0, 1, size=(n_samples,))
+    latent_t = latent_t_chunk * chunk_size[chunk] + chunk_offset[chunk]
+    latent_t = latent_t / total_size
+    latent_t = latent_t[:, None]
+
+    # branching
+    branching_t1 = 0.3
+    branching_t2 = 0.5
+    branch_id = np.random.binomial(1, branch_prob, size=(n_samples, 1)) * 2 - 1
+    branch_id = branch_id * (latent_t > branching_t1)
+
+    z1 = latent_t * total_size
+    z5 = branch_id * (latent_t - branching_t1)
+    z3 = (branch_id == 1) * np.clip(latent_t - 0.3, 0, 0.5)
+    z4 = (branch_id == 1) * np.clip(latent_t - branching_t2, 0, branching_t1)
+    z2 = (branch_id >= 0) * (np.clip(latent_t - 0.2, 0, 0.5) - np.clip(latent_t - 0.5, 0, 0.5))
+
+    # Create latent_z
+    latent_z = np.concatenate([z1, z3, z5], axis=1)
+    latent_z_sampled = np.random.normal(latent_z, sigma)
+    latent_z_sampled[:, 0] /= total_size
+
+    # ── Injection 1: v→z — uniform offset, batch-independent of pseudotime ──
+    latent_z_sampled[:, 0] += shift_z
+
+    net = RandomNet(latent_z_sampled.shape[1], n_genes)
+    data_clean = net(torch.tensor(latent_z_sampled).float()).detach().numpy()
+
+    # ── Injection 2: z→x — uniform offset across all cells and genes ──
+    data = np.clip(data_clean + shift_x, 0, None).astype(int)
+
+
+    adata_sim = sc.AnnData(data)
+    adata_sim.obs["latent_t"] = latent_t
+    adata_sim.obs["branch_id"] = branch_id
+    adata_sim.obsm["latent_z"] = latent_z
+    
+    k_means = KMeans(k_clusters)
+    k_means.fit(latent_z)
+    adata_sim.obs["cluster_true"] = k_means.labels_
+
+    for i in range(latent_z.shape[1]):
+        adata_sim.obs[f"latent_z{i}"] = latent_z[:, i]
+    adata_sim.obsm["latent"] = latent_z_sampled
+    latent_names = [f"latent_z{i}" for i in range(latent_z.shape[1])]
+    adata_sim.uns["latent_z_names"] = latent_names
+
+    # for each cluster, order the other clusters by distance of their kmeans center
+    cluster_centers = k_means.cluster_centers_
+    cluster_rank = np.argsort(
+        np.linalg.norm(cluster_centers[:, None] - cluster_centers[None, :], axis=2)
+    )
+    adata_sim.uns["cluster_rank"] = cluster_rank[:, 1:]
+    
+    adata_sim.obs["shift"] = f"z={shift_z},x={shift_x}"
+
+    return adata_sim
+
+
+
 def combined_embeddings(
     adata_sim,
     out_folder,
