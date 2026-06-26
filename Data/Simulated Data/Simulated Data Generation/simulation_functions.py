@@ -313,7 +313,6 @@ def simulation_correlated_shift2(
 
     return adata_sim
 
-
 def simulation_correlated_shift_v_to_z(
     n_samples=500,
     n_genes=50,
@@ -398,6 +397,63 @@ def simulation_correlated_shift_v_to_z(
 
     return adata_sim
 
+def simulate_simple(
+    n_samples: int = 500,
+    n_genes: int = 50,
+    shift_type: str = "none",   # "z" | "x" | "none"
+    shift: float = 0.0,         # scalar magnitude for this batch
+    sigma: float = 0.1,         # biological noise at z level
+    seed: int = 0,
+):
+    """
+    Minimal linear simulation mirroring Decipher-BC's generative hierarchy:
+        v (latent_t)  →  z  →  x
+    
+    Batch can be injected at:
+        shift_type="z"    : v→z step  (mirrors jp-concat-prior)
+        shift_type="x"    : z→x step  (mirrors jp-concat-decoder)
+        shift_type="none" : unshifted baseline
+    
+    The linear projection W is fixed by seed, so all batches share
+    the same W — only the injected shift differs.
+    """
+    rng = np.random.default_rng(seed)
+
+    # --- v: batch-free pseudotime (1D) ---
+    latent_t = rng.uniform(0, 1, size=(n_samples, 1))  # shape (n_cells, 1)
+
+    # --- z: generated from v, batch optionally shifts the mean (v→z) ---
+    v_for_prior = latent_t.copy()
+    if shift_type == "z":
+        z_mean = v_for_prior + shift
+    else:
+        z_mean = v_for_prior
+    # additive shift on z mean
+    latent_z = rng.normal(z_mean, sigma)  # shape (n_cells, 1)
+
+    # --- x: z → x via fixed linear map ---
+    # For jp-concat-decoder: batch is concatenated with z before the decoder,
+    # so the shift enters z *before* W is applied, not after.
+    z_for_decoder = latent_z.copy()
+    if shift_type == "x":
+        z_for_decoder += shift  # batch shifts z before W
+
+    # fixed random linear map from z-space to gene space
+    W = np.random.default_rng(seed+1).standard_normal((z_for_decoder.shape[1], n_genes))
+    # linear projection from 1D z to n_genes-dimensional gene expression using the linear map W
+    x = z_for_decoder @ W
+    
+    # Floor at 0, round to integer counts
+    x = np.clip(np.round(x - x.min(axis=0)), 0, None).astype(int)
+
+    adata = sc.AnnData(X=x)
+    adata.obs["latent_t"]   = latent_t[:, 0]
+    adata.obs["shift"]      = shift
+    adata.obs["shift_type"] = shift_type
+    adata.obs["batch"]      = f"{shift:.2f}"
+    adata.layers["counts"]  = x.copy()
+
+    return adata
 
 
 def combined_embeddings(

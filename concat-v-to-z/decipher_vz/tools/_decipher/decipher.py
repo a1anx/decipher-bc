@@ -119,9 +119,9 @@ class Decipher(nn.Module):
             output_dims=[self.config.dim_z] * 2,
         )
         ## z -> x (reconstruction)
-        # Input is now the biological latent z + the technical batch embedding
+        # Input is now the biological latent z, without the batch embedding
         self.decoder_z_to_x = ConditionalDenseNN(
-            input_dim=self.config.dim_z + self.config.dim_batch_embedding, 
+            input_dim=self.config.dim_z,
             hidden_dims=config.layers_z_to_x, 
             output_dims=[self.config.dim_genes]
         )
@@ -164,10 +164,9 @@ class Decipher(nn.Module):
             z_loc, z_scale = self.decoder_v_to_z(v_combined)
             z_scale = softplus(z_scale)
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
-
-            # z -> x reconstruction, conditioned on batch (unchanged)
-            z_combined = torch.cat([z, batch_vec], dim=-1)
-            mu = self.decoder_z_to_x(z_combined)
+        
+            # z -> x reconstruction, not conditioned on batch
+            mu = self.decoder_z_to_x(z)
             
             mu = softmax(mu, dim=-1)
             library_size = x.sum(axis=-1, keepdim=True)

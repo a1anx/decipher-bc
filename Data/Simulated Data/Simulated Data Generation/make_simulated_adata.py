@@ -20,6 +20,7 @@ from scipy.stats import spearmanr
 
 import anndata as ad
 from simulation_functions import simulation_correlated_shift, simulation_correlated_shift2, simulation_correlated_shift_v_to_z
+from simulation_functions import simulate_simple
 import params
 from params import SIMUL_PARAMS
 
@@ -181,6 +182,66 @@ def shift_magnitudes_v_to_z(
 
     return adata_concat
 
+def shift_magnitudes_simple(
+    adata_folder: str,
+    shift_type: str,          # "z" | "x" | "both" | "none"
+    shifts: np.ndarray,       # unit direction vector, e.g. np.array([1.0])
+    mag: float,               # scalar multiplier titrated across experiments
+    n_samples: int = 500,
+    n_genes: int = 50,
+    sigma: float = 0.1,
+    seed: int = 0,
+):
+    """
+    Builds a multi-batch AnnData by concatenating:
+        - one unshifted baseline  (shift=0, batch="batch_0.00")
+        - one per entry in mag * shifts
+
+    Each resulting obs has columns: latent_t, shift, shift_type, batch.
+    The 'batch' column is what you pass as batch_key to decipher_train.
+
+    Mirrors the interface of the original shift_magnitudes() function.
+    """
+    os.makedirs(adata_folder, exist_ok=True)
+    shift_vec = np.round(mag * shifts, 2)
+
+    # Unshifted baseline
+    adata_base = simulate_simple(
+        n_samples=n_samples,
+        n_genes=n_genes,
+        shift_type="none",
+        shift=0.0,
+        sigma=sigma,
+        seed=seed,
+    )
+    adata_concat = adata_base.copy()
+
+    # One shifted batch per entry in shift_vec
+    for shift in shift_vec:
+        adata_sim = simulate_simple(
+            n_samples=n_samples,
+            n_genes=n_genes,
+            shift_type=shift_type,
+            shift=float(shift),
+            sigma=sigma,
+            seed=seed,               # same seed → same W, same latent_t draws
+        )
+        adata_concat = ad.concat(
+            [adata_concat, adata_sim],
+            axis=0,
+            join="outer",
+            label=None,
+            merge="same",
+        )
+
+    shift_vec_str = "_".join([f"{s:.2f}" for s in shift_vec])
+    out_path = os.path.join(
+        adata_folder, f"{shift_type}_{shift_vec_str}.h5ad"
+    )
+    adata_concat.write(out_path)
+    _LOGGER.info(f"Combined adata saved: {out_path}")
+
+    return adata_concat
 
 
 if __name__ == "__main__":
