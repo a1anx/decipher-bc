@@ -404,6 +404,7 @@ def simulate_simple(
     shift: float = 0.0,         # scalar magnitude for this batch
     sigma: float = 0.1,         # biological noise at z level
     seed: int = 0,
+    cell_seed: int = 0,     # controls latent_t, latent_z — different per batch
 ):
     """
     Minimal linear simulation mirroring Decipher-BC's generative hierarchy:
@@ -417,7 +418,7 @@ def simulate_simple(
     The linear projection W is fixed by seed, so all batches share
     the same W — only the injected shift differs.
     """
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(cell_seed)
 
     # --- v: batch-free pseudotime (1D) ---
     latent_t = rng.uniform(0, 1, size=(n_samples, 1))  # shape (n_cells, 1)
@@ -452,6 +453,71 @@ def simulate_simple(
     adata.obs["shift_type"] = shift_type
     adata.obs["batch"]      = f"{shift:.2f}"
     adata.layers["counts"]  = x.copy()
+
+    return adata
+
+def simulate_simple2(
+    n_samples: int = 500,
+    n_genes: int = 50,
+    shift_type: str = "none",   # "vz" | "zx" | "none"
+    shift: float = 0.0,         # scalar magnitude for this batch
+    sigma: float = 0.1,         # biological noise at z level
+    seed: int = 0,
+    cell_seed: int = 0,     # controls latent_t, latent_z — different per batch
+):
+    """
+    Minimal linear simulation mirroring Decipher-BC's generative hierarchy:
+        v (latent_t)  →  z  →  x
+    
+    Batch can be injected at:
+        shift_type="vz"    : v→z step  (mirrors jp-concat-prior)
+        shift_type="zx"    : z→x step  (mirrors jp-concat-decoder)
+        shift_type="none" : unshifted baseline
+    
+    The linear projection W is fixed by seed, so all batches share
+    the same W — only the injected shift differs.
+    """
+    rng = np.random.default_rng(cell_seed)
+
+    # --- v: batch-free pseudotime (1D) ---
+    latent_t = rng.uniform(0, 1, size=(n_samples, 1))  # shape (n_cells, 1)
+
+    # --- z: v → z, now 2D ---
+    # dim 0 = biological (driven by latent_t)
+    # dim 1 = batch-direction (zero in baseline, shifted per batch)
+
+    z_mean = np.concatenate([latent_t, np.zeros_like(latent_t)], axis=1)  # (n, 2)
+    
+    valid_types = {"vz", "zx", "none"}
+    
+    if shift_type == "vz":
+        z_mean[:, 1] += shift                          # shift orthogonal to trajectory
+        latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
+        z_for_decoder = latent_z.copy()
+    elif shift_type == "zx":                       # shift orthogonal to trajectory
+        latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
+        z_for_decoder = latent_z.copy()
+        z_for_decoder[:, 1] += shift                   # same orthogonal direction
+    elif shift_type == "none":
+        latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
+        z_for_decoder = latent_z.copy()
+    else:
+        raise ValueError(f"shift_type must be one of {valid_types}, got {shift_type!r}")
+
+    # --- x: z → x, W now (2, n_genes) ---
+    W = np.random.default_rng(seed + 1).standard_normal((2, n_genes))
+    x = z_for_decoder @ W
+    
+    # Floor at 0, round to integer counts
+    # fix for identical across batches
+    # x = np.clip(np.round(x - x.min(axis=0)), 0, None).astype(int)
+
+    adata = sc.AnnData(X=x)
+    adata.obs["latent_t"]   = latent_t[:, 0]
+    adata.obs["shift"]      = shift
+    adata.obs["shift_type"] = shift_type
+    adata.obs["batch"]      = f"{shift:.2f}"
+    #adata.layers["counts"]  = x.copy()
 
     return adata
 
