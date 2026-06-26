@@ -72,7 +72,7 @@ def decipher(
     x_label="Decipher 1",
     y_label="Decipher 2",
     axis_type="arrow",
-    figsize=(7, 7),
+    figsize=(5, 5),
     vmax=lambda xs: np.quantile(xs[~np.isnan(xs)], 0.99),
     **kwargs,
 ):
