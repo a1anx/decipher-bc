@@ -400,7 +400,7 @@ def simulation_correlated_shift_v_to_z(
 def simulate_simple(
     n_samples: int = 500,
     n_genes: int = 50,
-    shift_type: str = "none",   # "z" | "x" | "none"
+    shift_type: str = "none",   # "vz" | "zx" | "none"
     shift: float = 0.0,         # scalar magnitude for this batch
     sigma: float = 0.1,         # biological noise at z level
     seed: int = 0,
@@ -410,8 +410,8 @@ def simulate_simple(
         v (latent_t)  →  z  →  x
     
     Batch can be injected at:
-        shift_type="z"    : v→z step  (mirrors jp-concat-prior)
-        shift_type="x"    : z→x step  (mirrors jp-concat-decoder)
+        shift_type="vz"    : v→z step  (mirrors jp-concat-prior)
+        shift_type="zx"    : z→x step  (mirrors jp-concat-decoder)
         shift_type="none" : unshifted baseline
     
     The linear projection W is fixed by seed, so all batches share
@@ -424,7 +424,7 @@ def simulate_simple(
 
     # --- z: generated from v, batch optionally shifts the mean (v→z) ---
     v_for_prior = latent_t.copy()
-    if shift_type == "z":
+    if shift_type == "vz":
         z_mean = v_for_prior + shift
     else:
         z_mean = v_for_prior
@@ -435,7 +435,7 @@ def simulate_simple(
     # For jp-concat-decoder: batch is concatenated with z before the decoder,
     # so the shift enters z *before* W is applied, not after.
     z_for_decoder = latent_z.copy()
-    if shift_type == "x":
+    if shift_type == "zx":
         z_for_decoder += shift  # batch shifts z before W
 
     # fixed random linear map from z-space to gene space

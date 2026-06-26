@@ -184,7 +184,7 @@ def shift_magnitudes_v_to_z(
 
 def shift_magnitudes_simple(
     adata_folder: str,
-    shift_type: str,          # "z" | "x" | "both" | "none"
+    shift_type: str,          # "vz" | "zx" | "none"
     shifts: np.ndarray,       # unit direction vector, e.g. np.array([1.0])
     mag: float,               # scalar multiplier titrated across experiments
     n_samples: int = 500,
@@ -242,7 +242,6 @@ def shift_magnitudes_simple(
     _LOGGER.info(f"Combined adata saved: {out_path}")
 
     return adata_concat
-
 
 if __name__ == "__main__":
     shifts = np.array([0.2, 0.4, 0.6])
