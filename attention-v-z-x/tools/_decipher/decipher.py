@@ -17,7 +17,8 @@ from torch.nn.functional import softmax, softplus
 # Changed to relative import: BatchCorrectedDecoder and BatchCorrectedVToZ are defined in this
 # package's own module.py, not in base decipher-bc, so the absolute import caused ImportError.
 # from decipher.tools._decipher.module import BatchCorrectedDecoder, BatchCorrectedVToZ, ConditionalDenseNN
-from .module import BatchCorrectedDecoder, BatchCorrectedVToZ, ConditionalDenseNN
+# V2: Only v conditioned on batch — BatchCorrectedDecoder removed to avoid double-conditioning z on batch
+from .module import BatchCorrectedVToZ, ConditionalDenseNN
 
 
 @dataclass(unsafe_hash=True)
@@ -41,7 +42,7 @@ class DecipherConfig:
     prior: str = "normal"
 
     # NEW FIELDS: batch correction hyperparameters (mirror of attention-z-to-x config)
-    use_batch_correction: bool = False
+    # V2: Only v conditioned on batch — use_batch_correction flag removed, correction is always on
     n_batches: int = 0
     batch_emb_dim: int = 64
     n_heads: int = 4
@@ -55,9 +56,9 @@ class DecipherConfig:
         self.dim_genes = adata.shape[1]
         self.n_cells = adata.shape[0]
         # NEW: count the number of unique batches and flip the flag if a batch key is given
+        # V2: Only v conditioned on batch — use_batch_correction flag removed
         if batch_key is not None:
             self.n_batches = int(adata.obs[batch_key].astype("category").cat.categories.size)
-            self.use_batch_correction = True
         self._initialized_from_adata = True
 
     def to_dict(self):
@@ -95,41 +96,25 @@ class Decipher(nn.Module):
 
         # NEW: swap in BatchCorrectedVToZ when batch correction is enabled;
         # v attends over batch prototype embeddings to produce a batch-aware z.
-        if config.use_batch_correction:
-            self.decoder_v_to_z = BatchCorrectedVToZ(
-                dim_v=self.config.dim_v,
-                dim_z=self.config.dim_z,
-                n_batches=self.config.n_batches,
-                batch_emb_dim=self.config.batch_emb_dim,
-                hidden_dims=list(self.config.layers_v_to_z),
-                n_heads=self.config.n_heads,
-                dropout=self.config.batch_correction_dropout,
-                combination_mode=self.config.batch_combination_mode,
-            )
-        else:
-            # ORIGINAL LINE (preserved): standard v->z decoder with no batch awareness
-            self.decoder_v_to_z = ConditionalDenseNN(
-                self.config.dim_v, self.config.layers_v_to_z, [self.config.dim_z] * 2
-            )
+        # V2: Only v conditioned on batch — BatchCorrectedVToZ always used, no fallback branch
+        self.decoder_v_to_z = BatchCorrectedVToZ(
+            dim_v=self.config.dim_v,
+            dim_z=self.config.dim_z,
+            n_batches=self.config.n_batches,
+            batch_emb_dim=self.config.batch_emb_dim,
+            hidden_dims=list(self.config.layers_v_to_z),
+            n_heads=self.config.n_heads,
+            dropout=self.config.batch_correction_dropout,
+            combination_mode=self.config.batch_combination_mode,
+        )
         # NEW: also swap in BatchCorrectedDecoder for z->x when batch correction is enabled.
         # Conditioning both steps on batch creates a consistent generative model: the prior
         # says z varies with batch, and the likelihood can explicitly undo that at reconstruction.
-        if config.use_batch_correction:
-            self.decoder_z_to_x = BatchCorrectedDecoder(
-                latent_dim=self.config.dim_z,
-                n_output=self.config.dim_genes,
-                n_batches=self.config.n_batches,
-                batch_emb_dim=self.config.batch_emb_dim,
-                hidden_dims=list(self.config.layers_z_to_x),
-                n_heads=self.config.n_heads,
-                dropout=self.config.batch_correction_dropout,
-                combination_mode=self.config.batch_combination_mode,
-            )
-        else:
-            # ORIGINAL LINE (preserved): standard z->x decoder with no batch awareness
-            self.decoder_z_to_x = ConditionalDenseNN(
-                self.config.dim_z, config.layers_z_to_x, [self.config.dim_genes]
-            )
+        # ORIGINAL LINE (preserved): standard z->x decoder with no batch awareness
+        # V2: Only v conditioned on batch — z->x uses native ConditionalDenseNN to avoid double-conditioning
+        self.decoder_z_to_x = ConditionalDenseNN(
+            self.config.dim_z, config.layers_z_to_x, [self.config.dim_genes]
+        )
         self.encoder_x_to_z = ConditionalDenseNN(
             self.config.dim_genes, [128], [self.config.dim_z] * 2
         )
@@ -170,10 +155,8 @@ class Decipher(nn.Module):
             # NEW: when batch correction is on, v attends over all batch embeddings to produce
             # a batch-aware z. Otherwise, the original context-conditioned path is used.
             # OLD: z_loc, z_scale = self.decoder_v_to_z(v, context=context)
-            if self.config.use_batch_correction:
-                z_loc, z_scale = self.decoder_v_to_z(v, batch_index)
-            else:
-                z_loc, z_scale = self.decoder_v_to_z(v, context=context)
+            # V2: Only v conditioned on batch — branch removed, always uses BatchCorrectedVToZ
+            z_loc, z_scale = self.decoder_v_to_z(v, batch_index)
             z_scale = softplus(z_scale)
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
 
@@ -181,10 +164,8 @@ class Decipher(nn.Module):
             # This allows the decoder to explicitly undo batch effects at the output level,
             # removing the pressure on z to carry batch signal.
             # OLD: mu = self.decoder_z_to_x(z, context=context)
-            if self.config.use_batch_correction:
-                mu = self.decoder_z_to_x(z, batch_index)
-            else:
-                mu = self.decoder_z_to_x(z, context=context)
+            # V2: Only v conditioned on batch — z->x uses native decoder, no batch input
+            mu = self.decoder_z_to_x(z)
             mu = softmax(mu, dim=-1)
             library_size = x.sum(axis=-1, keepdim=True)
             # Parametrization of Negative Binomial by the mean and inverse dispersion
@@ -248,6 +229,7 @@ class Decipher(nn.Module):
         return v_loc.detach().numpy(), z_loc.detach().numpy()
 
     # NEW PARAM: batch_index — needed to pass to the batch-conditioned z->x decoder
+    # V2: Only v conditioned on batch — batch_index kept in signature for API consistency but unused here
     def impute_gene_expression_numpy(self, x, batch_index=None):
         if type(x) == np.ndarray:
             x = torch.tensor(x, dtype=torch.float32)
@@ -255,12 +237,8 @@ class Decipher(nn.Module):
         # NEW: pass batch_index to decoder_z_to_x when batch correction is enabled.
         # Fall back to batch 0 if no index is provided (e.g. when called without labels).
         # OLD: mu = self.decoder_z_to_x(z_loc)
-        if self.config.use_batch_correction:
-            if batch_index is None:
-                batch_index = torch.zeros(x.shape[0], dtype=torch.long)
-            mu = self.decoder_z_to_x(z_loc, batch_index)
-        else:
-            mu = self.decoder_z_to_x(z_loc)
+        # V2: Only v conditioned on batch — z->x takes z only, no batch_index
+        mu = self.decoder_z_to_x(z_loc)
         mu = softmax(mu, dim=-1)
         library_size = x.sum(axis=-1, keepdim=True)
         return (library_size * mu).detach().numpy()

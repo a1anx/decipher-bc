@@ -12,9 +12,7 @@ import torch.utils.data
 from torch.distributions import constraints
 from torch.nn.functional import softmax, softplus
 
-#EDIT: PREVIOUSLY WAS
-#from decipher.tools._decipher.module import ConditionalDenseNN
-from decipher.tools._decipher.module import BatchCorrectedDecoder, ConditionalDenseNN
+from .module import BatchCorrectedDecoder, ConditionalDenseNN
 
 @dataclass(unsafe_hash=True)
 class DecipherConfig:
