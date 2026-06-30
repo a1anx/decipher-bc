@@ -453,6 +453,10 @@ def simulate_simple(
     adata.obs["shift_type"] = shift_type
     adata.obs["batch"]      = f"{shift:.2f}"
     adata.layers["counts"]  = x.copy()
+    for i in range(latent_z.shape[1]):
+        adata.obs[f"latent_z{i}"] = latent_z[:, i]
+    latent_names = [f"latent_z{i}" for i in range(latent_z.shape[1])]
+    adata.uns["latent_z_names"] = latent_names
 
     return adata
 
@@ -518,6 +522,10 @@ def simulate_simple2(
     adata.obs["shift_type"] = shift_type
     adata.obs["batch"]      = f"{shift:.2f}"
     #adata.layers["counts"]  = x.copy()
+    for i in range(latent_z.shape[1]):
+        adata.obs[f"latent_z{i}"] = latent_z[:, i]
+    latent_names = [f"latent_z{i}" for i in range(latent_z.shape[1])]
+    adata.uns["latent_z_names"] = latent_names
 
     return adata
 
