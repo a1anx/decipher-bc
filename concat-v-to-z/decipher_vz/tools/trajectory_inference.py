@@ -428,9 +428,15 @@ def decipher_time(adata, n_neighbors=10):
         cells_on_trajectory_index = adata.obs[is_on_trajectory].index
         cells_on_trajectory_idx = np.where(is_on_trajectory)[0]
 
+        """
+        Previous code triggers pandas version incompatibility
+        Mismatch between numpy array and row label
         adata.obs.loc[cells_on_trajectory_index, "decipher_time"] = knn.predict(
             adata.obsm["decipher_v"][cells_on_trajectory_idx]
         )
+        """
+        predicted = knn.predict(adata.obsm["decipher_v"][cells_on_trajectory_idx])
+        adata.obs.iloc[cells_on_trajectory_idx, adata.obs.columns.get_loc("decipher_time")] = predicted
 
     logging.info("Added `.obs['decipher_time']`: the decipher time of each cell.")
 

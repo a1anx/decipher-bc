@@ -20,8 +20,11 @@ from decipher_vz.tools._decipher.data import (
     make_data_loader_from_adata,
     get_dense_X,
 )
-from decipher.tools.utils import EarlyStopping
-from decipher.utils import DECIPHER_GLOBALS, GIFMaker, is_notebook, load_and_show_gif
+# Stale references to the old `decipher` package name; decipher_vz has its own copies of these.
+# from decipher.tools.utils import EarlyStopping
+# from decipher.utils import DECIPHER_GLOBALS, GIFMaker, is_notebook, load_and_show_gif
+from decipher_vz.tools.utils import EarlyStopping
+from decipher_vz.utils import DECIPHER_GLOBALS, GIFMaker, is_notebook, load_and_show_gif
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
