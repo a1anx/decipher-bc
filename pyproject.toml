@@ -5,7 +5,10 @@ description = "Decipher is a single-cell analysis package to integrate and compa
 authors = ["Achille Nazaret"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "decipher", from="."}]
+packages = [
+    {include = "decipher_vz", from="concat-v-to-z"}
+]
+
 
 
 [tool.poetry.dependencies]

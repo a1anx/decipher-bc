@@ -236,12 +236,13 @@ def shift_magnitudes_simple(
 
     shift_vec_str = "_".join([f"{s:.2f}" for s in shift_vec])
     today = datetime.now().strftime("%m%d")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     if shift_type == "vz":
-        adata_folder = "Simulated Adata/v-to-z"
+        adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "v-to-z")
     elif shift_type == "zx":
-        adata_folder = "Simulated Adata/z-to-x"
+        adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "z-to-x")
     else:
-        adata_folder = "Simulated Adata/none"
+        adata_folder = os.path.join(script_dir,"..", "Simulated Adata", "none")
     os.makedirs(adata_folder, exist_ok=True)
     out_path = os.path.join(
         adata_folder, f"{today}_{shift_type}_{shift_vec_str}.h5ad"
@@ -254,7 +255,7 @@ def shift_magnitudes_simple(
 
 
 if __name__ == "__main__":
-    shifts = np.array([0.1, 0.2, 0.3, 0.4])
+    shifts = np.array([0.10, 0.20, 0.30])
     shift_magnitudes_simple(shift_type = "vz",          # "vz" | "zx" | "none"
                             shifts = shifts,       # unit direction vector, e.g. np.array([1.0])
                             mag = 1.0)

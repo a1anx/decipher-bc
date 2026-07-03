@@ -7,7 +7,7 @@ import anndata as ad
 import scanpy as sc
 
 # REMOVED: pandas, matplotlib, seaborn, sklearn — were used by run_methods/combined_embeddings
-#   which have been removed in v2.
+# which have been removed in v2.
 # REMOVED: sys path manipulation for decipher-batch-correction parent dir — not needed in v2.
 
 from simulation_functions import simulation_linear_trajectory
