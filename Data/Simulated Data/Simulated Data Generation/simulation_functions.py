@@ -463,7 +463,7 @@ def simulate_simple(
 def simulate_simple2(
     n_samples: int = 500,
     n_genes: int = 50,
-    shift_type: str = "none",   # "vz" | "zx" | "none"
+    shift_type: str = "none",   # "vz" | "none"
     shift: float = 0.0,         # scalar magnitude for this batch
     sigma: float = 0.1,         # biological noise at z level
     seed: int = 0,
@@ -492,16 +492,16 @@ def simulate_simple2(
 
     z_mean = np.concatenate([latent_t, np.zeros_like(latent_t)], axis=1)  # (n, 2)
     
-    valid_types = {"vz", "zx", "none"}
+    valid_types = {"vz", "none"}
     
     if shift_type == "vz":
         z_mean[:, 1] += shift                          # shift orthogonal to trajectory
         latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
         z_for_decoder = latent_z.copy()
-    elif shift_type == "zx":                       # shift orthogonal to trajectory
-        latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
-        z_for_decoder = latent_z.copy()
-        z_for_decoder[:, 1] += shift                   # same orthogonal direction
+    # elif shift_type == "zx":                       # shift orthogonal to trajectory
+    #     latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
+    #     z_for_decoder = latent_z.copy()
+    #     z_for_decoder[:, 1] += shift                   # same orthogonal direction
     elif shift_type == "none":
         latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
         z_for_decoder = latent_z.copy()
@@ -510,18 +510,13 @@ def simulate_simple2(
 
     # --- x: z → x, W now (2, n_genes) ---
     W = np.random.default_rng(seed + 1).standard_normal((2, n_genes))
-    x = z_for_decoder @ W
-    
-    # Floor at 0, round to integer counts
-    # fix for identical across batches
-    # x = np.clip(np.round(x - x.min(axis=0)), 0, None).astype(int)
+    pre_x = z_for_decoder @ W
 
-    adata = sc.AnnData(X=x)
+    adata = sc.AnnData(X=pre_x)
     adata.obs["latent_t"]   = latent_t[:, 0]
     adata.obs["shift"]      = shift
     adata.obs["shift_type"] = shift_type
     adata.obs["batch"]      = f"{shift:.2f}"
-    #adata.layers["counts"]  = x.copy()
     for i in range(latent_z.shape[1]):
         adata.obs[f"latent_z{i}"] = latent_z[:, i]
     latent_names = [f"latent_z{i}" for i in range(latent_z.shape[1])]
