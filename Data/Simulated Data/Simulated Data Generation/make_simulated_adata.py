@@ -187,7 +187,7 @@ def shift_magnitudes_v_to_z(
 
 def shift_magnitudes_simple(
     #adata_folder: str,
-    shift_type: str,          # "vz" | "zx" | "none"
+    shift_type: str,          # "vz" | "none"
     shifts: np.ndarray,       # unit direction vector, e.g. np.array([1.0])
     mag: float,               # scalar multiplier titrated across experiments
     n_samples: int = 500,
@@ -239,8 +239,6 @@ def shift_magnitudes_simple(
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if shift_type == "vz":
         adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "v-to-z")
-    elif shift_type == "zx":
-        adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "z-to-x")
     else:
         adata_folder = os.path.join(script_dir,"..", "Simulated Adata", "none")
     os.makedirs(adata_folder, exist_ok=True)
@@ -256,6 +254,6 @@ def shift_magnitudes_simple(
 
 if __name__ == "__main__":
     shifts = np.array([0.20, 0.40, 0.60, 0.80])
-    shift_magnitudes_simple(shift_type = "vz",          # "vz" | "zx" | "none"
+    shift_magnitudes_simple(shift_type = "vz",          # "vz"
                             shifts = shifts,       # unit direction vector, e.g. np.array([1.0])
                             mag = 1.0)
