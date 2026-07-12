@@ -255,7 +255,7 @@ def shift_magnitudes_simple(
 
 
 if __name__ == "__main__":
-    shifts = np.array([0.10, 0.20, 0.30])
+    shifts = np.array([0.20, 0.40, 0.60, 0.80])
     shift_magnitudes_simple(shift_type = "vz",          # "vz" | "zx" | "none"
                             shifts = shifts,       # unit direction vector, e.g. np.array([1.0])
                             mag = 1.0)

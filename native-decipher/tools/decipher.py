@@ -223,7 +223,7 @@ def decipher_train(
             plot_decipher_v(adata, basis="decipher_v", **plot_kwargs)
             gif_maker.add_image(plt.gcf())
             if is_notebook():
-                from IPython.core import display
+                from IPython import display
 
                 display.clear_output(wait=True)
                 display.display(plt.gcf())
@@ -232,7 +232,7 @@ def decipher_train(
             plt.close()
 
     if is_notebook():
-        from IPython.core import display
+        from IPython import display
 
         display.clear_output()
         pbar.display()
