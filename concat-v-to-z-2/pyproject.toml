@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "decipher_vz2"
 version = "0.1.3"
-description = "batch conditioning on both v to z (prior) and z to x (decoder)"
+description = "batch conditioning on both encoder and decoder"
 authors = ["Achille Nazaret"]
 license = "MIT"
 readme = "README.md"
