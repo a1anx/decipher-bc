@@ -1,0 +1,17 @@
+Modified files:
+
+simulation_functions.py — moved import decipher as dc from module-level into run_methods() (local import, likely to avoid an import-order/side-effect conflict now that sigma_sweep.py conditionally imports either decipher or decipher_vz).
+make_simulated_adata.py — shift_magnitudes_simple() now returns (adata_concat, out_path) instead of just adata_concat, so callers get the saved file path back.
+sigma_sweep.py — substantial rework:
+build_sim_normal_shifts() propagates the new (adata, h5ad_path) return.
+rho_for_run() now actually trains a Decipher model (previously that step was stubbed out per the removed comment "alan's code for calculating decipher_time"): picks decipher_vz/decipher_bc vs. plain decipher based on batch_aware, runs decipher_train, computes clusters/trajectories/rotation, then decipher_time.
+Trained adata is saved to a new trained/<model_tag>/ subdirectory (so retraining isn't needed to inspect decipher_z/decipher_v/decipher_time later).
+The sweep loop now logs each run's model/sigma/seed/rho/paths to run_log, written out as sigma_sweep_results.csv.
+7.1 decipher-sim-data-test.ipynb — small update (6 insertions, 3 deletions), consistent with adapting to the shift_magnitudes_simple return-value change.
+
+New (untracked) files:
+
+8.0 sigma-sweep-test.ipynb (2.5M) and 8.1 sigma-sweep-full-run.ipynb (5.0M) — new notebooks, presumably testing/running the updated sweep.
+7 new .h5ad simulated datasets in v-to-z/ dated 0716–0717, ranging 2.5–3.2M each (parameter sweeps over shift magnitudes).
+v-to-z/trained/ (54M total) — new directory containing trained model outputs in decipher/ and decipher_bc/ subfolders, plus sigma_sweep_results_phase1.csv — output of the new training/saving logic in sigma_sweep.py.
+git-changes-log + 0717.txt: for when we don't have time to do pull requests (like today)

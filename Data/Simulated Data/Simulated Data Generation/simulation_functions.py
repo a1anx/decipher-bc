@@ -13,8 +13,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.cluster import KMeans
 
-import decipher as dc
-
 sc.set_figure_params(figsize=[3, 3])
 
 class RandomNet(nn.Module):
@@ -45,6 +43,7 @@ class RandomNet(nn.Module):
 
 
 def run_methods(adata, seed=0):
+    import decipher as dc
     latent_spaces = []
     
     # ---------- 1) Make a normalized copy for UMAP/PCA/PHATE ----------

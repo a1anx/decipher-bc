@@ -248,7 +248,7 @@ def shift_magnitudes_simple(
     adata_concat.write(out_path)
     _LOGGER.info(f"Combined adata saved: {out_path}")
 
-    return adata_concat
+    return adata_concat, out_path
 
 
 
