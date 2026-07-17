@@ -185,7 +185,7 @@ def shift_magnitudes_v_to_z(
 
     return adata_concat
 
-def shift_magnitudes_simple(
+def shift_magnitudes_simple_from_linear(
     #adata_folder: str,
     shift_type: str,          # "vz" | "none"
     shifts: np.ndarray,       # unit direction vector, e.g. np.array([1.0])
@@ -239,6 +239,8 @@ def shift_magnitudes_simple(
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if shift_type == "vz":
         adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "v-to-z")
+    elif shift_type == "zx":
+        adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "z-to-x")
     else:
         adata_folder = os.path.join(script_dir,"..", "Simulated Adata", "none")
     os.makedirs(adata_folder, exist_ok=True)
@@ -250,10 +252,90 @@ def shift_magnitudes_simple(
 
     return adata_concat, out_path
 
+def shift_magnitudes_simple_from_normal(
+    #adata_folder: str,
+    shift_type: str,          # "vz" | "none"
+    n_batches: int = 3,         # number of shifted batches (inlcuding baseline)
+    shift_sigma: float = 0.0,   # std of the per-batch magnitude draw  <-- the swept knob
+    n_samples: int = 500,
+    n_genes: int = 50,
+    sigma: float = 0.1,
+    seed: int = 0,
+):
+    """
+    Each shifted batch draws its dim-1 magnitude ~ N(center, shift_sigma).
+    Sweeping shift_sigma titrates how large a batch effect the model can
+    absorb before it distorts the shared trajectory.
+    """
+    # dedicated RNG stream so batch-magnitude draws never collide with the other seeds (W uses seed+1 and cell_seed uses seed+i+1)
+    mag_rng = np.random.default_rng(seed + 1000)
+    # samples different shifts for each batch (excluding baseline, so n_batches-1) from a normal distribution with mean 0 and standard deviation shift_sigma
+    shift_vec = np.round(mag_rng.normal(0, shift_sigma, size=n_batches-1), 2)
 
+    # unshifted baseline
+    adata_base = simulate_simple2(
+        n_samples=n_samples, n_genes=n_genes,
+        shift_type="none", shift=0.0,
+        sigma=sigma, seed=seed, cell_seed=seed,
+    )
+    adata_concat = adata_base.copy()
+    
+    # Each shifted batch gets its own cell_seed
+    for i, shift in enumerate(shift_vec):
+        adata_sim = simulate_simple2(
+            n_samples=n_samples, n_genes=n_genes,
+            shift_type=shift_type, shift=float(shift),
+            sigma=sigma, seed=seed, cell_seed=seed + i + 1,
+        )
+        adata_concat = ad.concat(
+            [adata_concat, adata_sim],
+            axis=0, join="outer", label=None, merge="same",
+        )
+    
+        # After all batches concatenated
+    X_all = adata_concat.X
+    X_all = np.clip(np.round(X_all - X_all.min(axis=0)), 0, None).astype(int)
+    adata_concat.X = X_all
+    adata_concat.layers["counts"] = X_all.copy()
+    
+    # record the swept parameter so downstream plots can read it back
+    adata_concat.uns["shift_sigma"] = shift_sigma
+    adata_concat.uns["shift_vec"]   = shift_vec
+
+    today = datetime.now().strftime("%m%d")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "shift_sigma_sweep")
+    
+    os.makedirs(adata_folder, exist_ok=True)
+    out_path = os.path.join(
+        adata_folder, f"{today}_{shift_type}_sigma{shift_sigma:.2f}.h5ad"
+    )
+    adata_concat.write(out_path)
+    _LOGGER.info(f"Combined adata saved: {out_path}")
+
+    return adata_concat
+
+def sweep_shift_sigma(      
+    shift_sigmas: np.ndarray,   # e.g. np.linspace(0.0, 3.0, 7)
+    shift_type: str = "vz",
+    n_batches: int = 5,
+    n_samples: int = 500,
+    n_genes: int = 50,
+    sigma: float = 0.1,
+    seed: int = 0,
+):
+    """Run one dataset per batch-effect level. Returns {shift_sigma: adata}."""
+    
+    out = {}
+    for ss in shift_sigmas:
+        out[float(ss)] = shift_magnitudes_simple_from_normal(
+            shift_type=shift_type, n_batches=n_batches,
+            shift_sigma=float(ss),
+            n_samples=n_samples, n_genes=n_genes,
+            sigma=sigma, seed=seed,
+        )
+    return out
 
 if __name__ == "__main__":
-    shifts = np.array([0.20, 0.40, 0.60, 0.80])
-    shift_magnitudes_simple(shift_type = "vz",          # "vz"
-                            shifts = shifts,       # unit direction vector, e.g. np.array([1.0])
-                            mag = 1.0)
+    sweep_shift_sigma(shift_sigmas=np.linspace(0.0, 3.0, 7))
