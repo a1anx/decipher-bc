@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.cluster import KMeans
 
-sc.set_figure_params(figsize=[3, 3])
+plt.rcParams["figure.figsize"] = [3, 3]
 
 class RandomNet(nn.Module):
     def __init__(self, n_in, n_out, seed=0):
@@ -464,7 +464,7 @@ def simulate_simple2(
     n_genes: int = 50,
     shift_type: str = "none",   # "vz" | "none"
     shift: float = 0.0,         # scalar magnitude for this batch
-    sigma: float = 0.1,         # biological noise at z level
+    biological_sigma: float = 0.1,         # biological noise at z level
     seed: int = 0,
     cell_seed: int = 0,     # controls latent_t, latent_z — different per batch
 ):
@@ -495,14 +495,14 @@ def simulate_simple2(
     
     if shift_type == "vz":
         z_mean[:, 1] += shift                          # shift orthogonal to trajectory
-        latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
+        latent_z = rng.normal(z_mean, biological_sigma)           # shape (n, 2)
         z_for_decoder = latent_z.copy()
     # elif shift_type == "zx":                       # shift orthogonal to trajectory
-    #     latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
+    #     latent_z = rng.normal(z_mean, biological_sigma)           # shape (n, 2)
     #     z_for_decoder = latent_z.copy()
     #     z_for_decoder[:, 1] += shift                   # same orthogonal direction
     elif shift_type == "none":
-        latent_z = rng.normal(z_mean, sigma)           # shape (n, 2)
+        latent_z = rng.normal(z_mean, biological_sigma)           # shape (n, 2)
         z_for_decoder = latent_z.copy()
     else:
         raise ValueError(f"shift_type must be one of {valid_types}, got {shift_type!r}")

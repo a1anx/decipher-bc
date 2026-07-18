@@ -255,11 +255,11 @@ def shift_magnitudes_simple_from_linear(
 def shift_magnitudes_simple_from_normal(
     #adata_folder: str,
     shift_type: str,          # "vz" | "none"
-    n_batches: int = 3,         # number of shifted batches (inlcuding baseline)
+    n_batches: int = 5,         # number of shifted batches (inlcuding baseline)
     shift_sigma: float = 0.0,   # std of the per-batch magnitude draw  <-- the swept knob
     n_samples: int = 500,
     n_genes: int = 50,
-    sigma: float = 0.1,
+    biological_sigma: float = 0.1,
     seed: int = 0,
 ):
     """
@@ -276,7 +276,7 @@ def shift_magnitudes_simple_from_normal(
     adata_base = simulate_simple2(
         n_samples=n_samples, n_genes=n_genes,
         shift_type="none", shift=0.0,
-        sigma=sigma, seed=seed, cell_seed=seed,
+        biological_sigma=biological_sigma, seed=seed, cell_seed=seed,
     )
     adata_concat = adata_base.copy()
     
@@ -285,7 +285,7 @@ def shift_magnitudes_simple_from_normal(
         adata_sim = simulate_simple2(
             n_samples=n_samples, n_genes=n_genes,
             shift_type=shift_type, shift=float(shift),
-            sigma=sigma, seed=seed, cell_seed=seed + i + 1,
+            biological_sigma=biological_sigma, seed=seed, cell_seed=seed + i + 1,
         )
         adata_concat = ad.concat(
             [adata_concat, adata_sim],
@@ -335,7 +335,8 @@ def sweep_shift_sigma(
             n_samples=n_samples, n_genes=n_genes,
             sigma=sigma, seed=seed,
         )
+        
     return out
 
 if __name__ == "__main__":
-    sweep_shift_sigma(shift_sigmas=np.linspace(0.0, 3.0, 7))
+    #sweep_shift_sigma(shift_sigmas=[np.linspace(0.0, 3.0, 7)])
