@@ -57,9 +57,13 @@ class GIFMaker:
         """
         fig.set_dpi(self.dpi)
         fig.canvas.draw()
-        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8")
-        image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        self.images.append(Image.fromarray(image))
+        # image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8")
+        # tostring is deprecated.  Modern matplotlib uses buffer_rgba
+        rgba_buffer = fig.canvas.buffer_rgba()
+        w, h = fig.canvas.get_width_height()
+        rgba = np.frombuffer(rgba_buffer, dtype="uint8").reshape(h, w, 4)
+        rgb = np.ascontiguousarray(rgba[..., :3])  # drop alpha; force C-contiguous for PIL
+        self.images.append(Image.fromarray(rgb))
 
     def save_gif(self, filename):
         """Make and save a GIF from the images.
