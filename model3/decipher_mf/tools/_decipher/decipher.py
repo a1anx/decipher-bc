@@ -102,31 +102,31 @@ class Decipher(nn.Module):
         # -------------------------
         
         # 2. Encoder
+        # unchanged
         self.encoder_x_to_z = ConditionalDenseNN(
             self.config.dim_genes + self.config.dim_batch_embedding, [128], [self.config.dim_z] * 2
 )
+        # only takes in x, not concatenated with z anymore, but kept the name for convenience
         self.encoder_zx_to_v = ConditionalDenseNN(
-            self.config.dim_genes + self.config.dim_z,
+            self.config.dim_genes,
             [128],
             [self.config.dim_v, self.config.dim_v],
         )
         
         # 3. Decoder
-        ## v -> z (now batch-conditioned, was pure biology)
+        ## v -> z
         self.decoder_v_to_z = ConditionalDenseNN(
             input_dim=self.config.dim_v + self.config.dim_batch_embedding,
             hidden_dims=self.config.layers_v_to_z,
             output_dims=[self.config.dim_z] * 2,
         )
         ## z -> x (reconstruction)
-        # Input is now the biological latent z, without the batch embedding
         self.decoder_z_to_x = ConditionalDenseNN(
             input_dim=self.config.dim_z,
             hidden_dims=config.layers_z_to_x, 
             output_dims=[self.config.dim_genes]
         )
         
-
         self._epsilon = 1e-5
 
         self.theta = None
@@ -193,8 +193,7 @@ class Decipher(nn.Module):
             posterior_z = dist.Normal(z_loc, z_scale).to_event(1)
             z = pyro.sample("z", posterior_z)
 
-            zx = torch.cat([z, x], dim=-1)
-            v_loc, v_scale = self.encoder_zx_to_v(zx)
+            v_loc, v_scale = self.encoder_zx_to_v(x)  # used to be concatenated zx
             v_scale = softplus(v_scale) + self._epsilon
             with poutine.scale(scale=self.config.beta):
                 if self.config.prior == "gamma":
@@ -216,8 +215,7 @@ class Decipher(nn.Module):
 
         x = torch.log1p(x)
         z_loc, _ = self.encoder_x_to_z(torch.cat([x, batch_vec], dim=-1))   # widened
-        zx = torch.cat([z_loc, x], dim=-1)                                   # unchanged
-        v_loc, _ = self.encoder_zx_to_v(zx)
+        v_loc, _ = self.encoder_zx_to_v(x) #used to be concatenated zx
         return v_loc.detach().numpy(), z_loc.detach().numpy()
 
     def impute_gene_expression_numpy(self, x):

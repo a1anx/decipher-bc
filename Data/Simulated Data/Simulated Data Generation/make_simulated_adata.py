@@ -339,4 +339,4 @@ def sweep_shift_sigma(
     return out
 
 if __name__ == "__main__":
-    #sweep_shift_sigma(shift_sigmas=[np.linspace(0.0, 3.0, 7)])
+    sweep_shift_sigma(shift_sigmas=[np.linspace(0.0, 3.0, 7)])
