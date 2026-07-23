@@ -212,7 +212,7 @@ def shift_magnitudes_simple_from_linear(
     adata_base = simulate_simple2(
         n_samples=n_samples, n_genes=n_genes,
         shift_type="none", shift=0.0,
-        sigma=sigma, seed=seed, cell_seed=seed,
+        biological_sigma=sigma, seed=seed, cell_seed=seed,
     )
     adata_concat = adata_base.copy()
 
@@ -221,7 +221,7 @@ def shift_magnitudes_simple_from_linear(
         adata_sim = simulate_simple2(
             n_samples=n_samples, n_genes=n_genes,
             shift_type=shift_type, shift=float(shift),
-            sigma=sigma, seed=seed, cell_seed=seed + i + 1,
+            biological_sigma=sigma, seed=seed, cell_seed=seed + i + 1,
         )
         adata_concat = ad.concat(
             [adata_concat, adata_sim],

@@ -3,19 +3,17 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
-from simulation_functions import simulate_simple2
-from make_simulated_adata import shift_magnitudes_simple_from_linear
+from make_simulated_adata_6dz import shift_magnitudes_multivariate_from_normal
+
+N_Z_DIMS = 6
 
 
 def build_sim_normal_shifts(sigma, n_batches, seed, sigma_biological=0.10,
-                            n_samples=500, n_genes=50):
-    """One dataset: n_batches shifts drawn ~ N(0, sigma^2) (Josh's prescription)."""
-    rng = np.random.default_rng(seed)
-    shifts = rng.normal(loc=0.0, scale=sigma, size=n_batches)   # scale = sigma (std)
-    # baseline (shift 0) + normally-drawn shifted batches, concatenated & count-transformed
-    adata, h5ad_path = shift_magnitudes_simple_from_linear(
-        shift_type="vz", shifts=shifts, mag=1.0,
-        n_samples=n_samples, n_genes=n_genes, sigma=sigma_biological, seed=seed,
+                            n_samples=500, n_genes=50, n_z_dims=N_Z_DIMS):
+    """One dataset: n_batches-1 shift vectors drawn ~ N(0, sigma^2 * I) over n_z_dims dims."""
+    adata, h5ad_path = shift_magnitudes_multivariate_from_normal(
+        shift_type="vz", n_batches=n_batches, shift_sigma=sigma, n_z_dims=n_z_dims,
+        n_samples=n_samples, n_genes=n_genes, biological_sigma=sigma_biological, seed=seed,
     )
     return adata, h5ad_path
 
@@ -31,7 +29,7 @@ def rho_for_run(sigma, seed, model, decipher_seed, n_batches=5):
         import decipher_vz2 as dc
         from decipher_vz2.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher_vz2'
-    
+
     elif model == 'decipher_mf':
         import decipher_mf as dc
         from decipher_mf.tools._decipher import DecipherConfig as DecipherConfig
@@ -42,9 +40,9 @@ def rho_for_run(sigma, seed, model, decipher_seed, n_batches=5):
         from decipher.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher'
 
-    config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed)
+    config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=N_Z_DIMS)
     dc.tl.decipher_train(adata, config, plot_kwargs={"color": "batch", "title": f"sigma={sigma}"})
-    
+
     #Compute ground truths and manually plot trajectories
     dc.tl.cell_clusters(adata, leiden_resolution = 0.05, n_neighbors= 25, seed = 341)
     filtered = adata.obs["decipher_clusters"].value_counts()>10
@@ -52,10 +50,13 @@ def rho_for_run(sigma, seed, model, decipher_seed, n_batches=5):
     ground_truths = adata.obs.groupby('decipher_clusters')['latent_t'].mean().sort_values().index.to_list()
     ground_truths = [c for c in ground_truths if c in filtered_ids]
     dc.tl.trajectories(adata, dc.tl.TConfig('trajectory', cluster_ids_list=ground_truths))
-    dc.tl.decipher_rotate_space(adata) 
+    dc.tl.decipher_rotate_space(adata)
 
     #Compute decipher time
-    dc.tl.decipher_time(adata)
+    # decipher_v can end up compressed into a very short path (e.g. for decipher_mf),
+    # so the trajectory can have fewer points than the default n_neighbors=10 requires.
+    n_trajectory_points = len(adata.uns["decipher"]["trajectories"]["trajectory"]["times"])
+    dc.tl.decipher_time(adata, n_neighbors=min(10, n_trajectory_points))
     m = adata.obs["decipher_time"].notna()
     rho, _ = spearmanr(adata.obs["decipher_time"][m], adata.obs["latent_t"][m])
 
@@ -68,7 +69,7 @@ def rho_for_run(sigma, seed, model, decipher_seed, n_batches=5):
     )
     adata.write(trained_h5ad_path)
 
-    return abs(rho), gt_h5ad_path, trained_h5ad_path, adata 
+    return abs(rho), gt_h5ad_path, trained_h5ad_path, adata
 
 
 if __name__ == "__main__":
@@ -117,12 +118,12 @@ if __name__ == "__main__":
         ax.fill_between(sigmas, mean - sd_, mean + sd_, color=colors[name], alpha=0.18)
 
     ax.set_xscale("log")                                     # sigma spans 0.1–10; log reads better
-    ax.set_xlabel(r"batch-shift noise  $\sigma$   (shifts $\sim \mathcal{N}(0,\sigma^2)$)")
+    ax.set_xlabel(r"batch-shift noise  $\sigma$   (shifts $\sim \mathcal{N}(0,\sigma^2)$, 6D)")
     ax.set_ylabel(r"Spearman $|\rho|$  (decipher_time vs latent_t)")
-    ax.set_title("Trajectory recovery vs batch noise")
+    ax.set_title("Trajectory recovery vs batch noise (6D z)")
     ax.set_ylim(0, 1); ax.axhline(0, color="0.8", lw=0.8)
     ax.legend(frameon=False); ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
-    fig.savefig("sigma_vs_correlation.png", dpi=200)
-    pd.DataFrame(run_log).to_csv("sigma_sweep_results.csv", index=False)
+    fig.savefig("sigma_vs_correlation_6dz.png", dpi=200)
+    pd.DataFrame(run_log).to_csv("sigma_sweep_results_6dz.csv", index=False)
     plt.show()

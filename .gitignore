@@ -1,7 +1,5 @@
 # Data files
 *.h5ad
-# but keep the ones in this folder
-!Data/Simulated Data/Simulated Adata/**
 
 # Trained model artifacts
 _decipher_models/
