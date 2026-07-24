@@ -1,0 +1,7 @@
+,iLISI,iLISI,iLISI,iLISI,Graph connectivity,Graph connectivity,Graph connectivity,Graph connectivity,Inverse silhouette,Inverse silhouette,Inverse silhouette,Inverse silhouette
+,k=30 bins=5,k=30 bins=8,k=60 bins=5,k=60 bins=8,k=30 bins=5,k=30 bins=8,k=60 bins=5,k=60 bins=8,k=30 bins=5,k=30 bins=8,k=60 bins=5,k=60 bins=8
+model,,,,,,,,,,,,
+base,0.0,0.0,0.0,0.0,0.27,0.19,0.56,0.42,0.35,0.35,0.35,0.35
+vz,0.0,0.0,0.02,0.02,0.67,0.45,0.93,0.88,0.73,0.7,0.73,0.7
+vz2,0.0,0.0,0.0,0.0,0.29,0.22,0.5,0.45,0.54,0.53,0.54,0.53
+mf,0.01,0.01,0.06,0.06,0.46,0.36,0.79,0.64,0.71,0.71,0.71,0.71

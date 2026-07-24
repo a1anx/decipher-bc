@@ -235,22 +235,22 @@ def shift_magnitudes_simple_from_linear(
     adata_concat.layers["counts"] = X_all.copy()
 
     shift_vec_str = "_".join([f"{s:.2f}" for s in shift_vec])
-    today = datetime.now().strftime("%m%d")
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    if shift_type == "vz":
-        adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "v-to-z")
-    elif shift_type == "zx":
-        adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "z-to-x")
-    else:
-        adata_folder = os.path.join(script_dir,"..", "Simulated Adata", "none")
-    os.makedirs(adata_folder, exist_ok=True)
-    out_path = os.path.join(
-        adata_folder, f"{today}_{shift_type}_{shift_vec_str}.h5ad"
-    )
-    adata_concat.write(out_path)
-    _LOGGER.info(f"Combined adata saved: {out_path}")
+    # today = datetime.now().strftime("%m%d")
+    # script_dir = os.path.dirname(os.path.abspath(__file__))
+    # if shift_type == "vz":
+    #     adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "v-to-z")
+    # elif shift_type == "zx":
+    #     adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "z-to-x")
+    # else:
+    #     adata_folder = os.path.join(script_dir,"..", "Simulated Adata", "none")
+    # os.makedirs(adata_folder, exist_ok=True)
+    # out_path = os.path.join(
+    #     adata_folder, f"{today}_{shift_type}_{shift_vec_str}.h5ad"
+    # )
+    # adata_concat.write(out_path)
+    # _LOGGER.info(f"Combined adata saved: {out_path}")
 
-    return adata_concat, out_path
+    return adata_concat
 
 def shift_magnitudes_simple_from_normal(
     #adata_folder: str,

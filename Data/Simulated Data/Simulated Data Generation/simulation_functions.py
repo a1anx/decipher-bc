@@ -508,7 +508,7 @@ def simulate_simple2(
         raise ValueError(f"shift_type must be one of {valid_types}, got {shift_type!r}")
 
     # --- x: z → x, W now (2, n_genes) ---
-    W = np.random.default_rng(seed + 1).standard_normal((2, n_genes))
+    W = np.random.default_rng(seed).standard_normal((2, n_genes))
     pre_x = z_for_decoder @ W
 
     adata = sc.AnnData(X=pre_x)
