@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import pandas as pd
@@ -5,10 +6,12 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 from make_simulated_adata_6dz import shift_magnitudes_multivariate_from_normal
 
+logger = logging.getLogger(__name__)
+
 N_Z_DIMS = 6
 
 
-def build_sim_normal_shifts(sigma, n_batches, seed, sigma_biological=0.10,
+def build_sim_normal_shifts(sigma, n_batches, seed, sigma_biological=0.20,
                             n_samples=500, n_genes=50, n_z_dims=N_Z_DIMS):
     """One dataset: n_batches-1 shift vectors drawn ~ N(0, sigma^2 * I) over n_z_dims dims."""
     adata, h5ad_path = shift_magnitudes_multivariate_from_normal(
@@ -44,19 +47,51 @@ def rho_for_run(sigma, seed, model, decipher_seed, n_batches=5):
     dc.tl.decipher_train(adata, config, plot_kwargs={"color": "batch", "title": f"sigma={sigma}"})
 
     #Compute ground truths and manually plot trajectories
-    dc.tl.cell_clusters(adata, leiden_resolution = 0.05, n_neighbors= 25, seed = 341)
-    filtered = adata.obs["decipher_clusters"].value_counts()>10
-    filtered_ids = set(filtered[filtered].index)
-    ground_truths = adata.obs.groupby('decipher_clusters')['latent_t'].mean().sort_values().index.to_list()
-    ground_truths = [c for c in ground_truths if c in filtered_ids]
-    dc.tl.trajectories(adata, dc.tl.TConfig('trajectory', cluster_ids_list=ground_truths))
+    # A trajectory needs >=2 cluster waypoints. When batch structure is weak (e.g. low
+    # sigma, or a well batch-corrected model like decipher_vz2), Leiden at low resolution
+    # can collapse all cells into a single cluster, so retry at increasing resolution
+    # until we get enough clusters to build a trajectory from.
+    leiden_resolution = 0.1
+    for attempt in range(6):
+        dc.tl.cell_clusters(adata, leiden_resolution=leiden_resolution, n_neighbors=25, seed=341)
+        filtered = adata.obs["decipher_clusters"].value_counts() > 10
+        filtered_ids = set(filtered[filtered].index)
+        ground_truths = adata.obs.groupby('decipher_clusters')['latent_t'].mean().sort_values().index.to_list()
+        ground_truths = [c for c in ground_truths if c in filtered_ids]
+        if len(ground_truths) >= 2:
+            break
+        logger.warning(
+            f"Only {len(ground_truths)} cluster(s) survived at leiden_resolution="
+            f"{leiden_resolution} (sigma={sigma}, model={model}, seed={seed}); "
+            f"retrying at higher resolution."
+        )
+        leiden_resolution *= 2
+    else:
+        raise ValueError(
+            f"Could not find >=2 clusters for a trajectory after {attempt + 1} attempts "
+            f"(sigma={sigma}, model={model}, seed={seed}, decipher_seed={decipher_seed}); "
+            f"final leiden_resolution={leiden_resolution / 2}."
+        )
+    # point_density=50 (the library default) assumes decipher_v paths of "normal" length;
+    # a well batch-corrected model can compress the trajectory to a very short path (here,
+    # length ~0.19), leaving too few points for a meaningful n_neighbors=10 KNN regression
+    # in decipher_time below (n_neighbors close to n_trajectory_points makes every cell's
+    # neighborhood cover almost the whole trajectory, collapsing decipher_time to ~n_clusters
+    # coarse buckets instead of a smooth gradient). Use a much higher density so short paths
+    # still get many points.
+    dc.tl.trajectories(
+        adata, dc.tl.TConfig('trajectory', cluster_ids_list=ground_truths), point_density=1000
+    )
     dc.tl.decipher_rotate_space(adata)
 
     #Compute decipher time
-    # decipher_v can end up compressed into a very short path (e.g. for decipher_mf),
-    # so the trajectory can have fewer points than the default n_neighbors=10 requires.
+    # n_neighbors must stay strictly less than n_trajectory_points: KNeighborsRegressor uses
+    # uniform weights, so n_neighbors == n_trajectory_points means every query cell averages
+    # over the ENTIRE trajectory, producing a constant decipher_time regardless of the cell's
+    # actual position.
     n_trajectory_points = len(adata.uns["decipher"]["trajectories"]["trajectory"]["times"])
-    dc.tl.decipher_time(adata, n_neighbors=min(10, n_trajectory_points))
+    n_neighbors = max(1, min(10, n_trajectory_points - 1))
+    dc.tl.decipher_time(adata, n_neighbors=n_neighbors)
     m = adata.obs["decipher_time"].notna()
     rho, _ = spearmanr(adata.obs["decipher_time"][m], adata.obs["latent_t"][m])
 
