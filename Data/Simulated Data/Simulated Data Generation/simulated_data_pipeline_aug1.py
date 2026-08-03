@@ -224,8 +224,9 @@ def train_and_compute_rho(model,
                           n_z_dims: int = 3,           # match simulate_multivariate default
                           biological_sigma: float = 0.1,
                           seed: int = 0,
+                          dim_z: int = None,            # model's latent Z size; defaults to n_z_dims
                           ):
-    
+
     """
     Inputs
     ------
@@ -237,6 +238,11 @@ def train_and_compute_rho(model,
     n_batches, shift_sigma, n_samples, n_genes, n_z_dims, biological_sigma, seed :
         Passed through to shift_magnitudes_multivariate_from_normal.
         See that function's docstring.
+    dim_z : int or None
+        Size of the model's own latent Z (DecipherConfig.dim_z). Defaults
+        to n_z_dims so model capacity matches the simulated ground-truth
+        dimensionality; pass explicitly to decouple them for a model-
+        capacity study (e.g. dim_z=10 on 3D-simulated data).
 
     Returns
     -------
@@ -273,6 +279,9 @@ def train_and_compute_rho(model,
         seed=seed
     )
 
+    if dim_z is None:
+        dim_z = n_z_dims
+
     if model == 'decipher_vz':
         import decipher_vz as dc
         from decipher_vz.tools._decipher import DecipherConfig as DecipherConfig
@@ -293,7 +302,7 @@ def train_and_compute_rho(model,
         from decipher.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher'
 
-    config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed)
+    config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z)
     dc.tl.decipher_train(adata, config, plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"})
     
     #Compute ground truths
@@ -325,15 +334,15 @@ def train_and_compute_rho(model,
     )
     adata.write(trained_h5ad_path)
 
-    return abs(rho), trained_h5ad_path 
+    return abs(rho), trained_h5ad_path, adata
 
 
 if __name__ == "__main__":
     
     # ---- sweep ----
     # shift distribution is MVN(0, shift_sigma^2 * I) in n_z_dims
-    shift_sigmas = [0.5, 2.0, 5.0]
-    seeds  = [0, 1, 2]    # multiple seeds: Decipher is non-identifiable
+    shift_sigmas = [0.1, 0.5, 1.0, 2.0, 5.0, 7.5, 10.0]
+    seeds  = [0, 1, 2, 3, 4]    # multiple seeds: Decipher is non-identifiable
     decipher_seeds = [1]  # one decipher_seed
     n_z_dims = 3
     biological_sigma = 0.1
