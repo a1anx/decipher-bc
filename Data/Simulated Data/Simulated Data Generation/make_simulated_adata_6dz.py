@@ -68,7 +68,7 @@ def shift_magnitudes_multivariate_from_normal(
     today = datetime.now().strftime("%m%d")
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "6dz_shift_sigma_sweep")
+    adata_folder = os.path.join(script_dir, "..", "Simulated Adata", "6dz_bio_sigma_0.1")
 
     os.makedirs(adata_folder, exist_ok=True)
     out_path = os.path.join(

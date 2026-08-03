@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 N_Z_DIMS = 6
 
 
-def build_sim_normal_shifts(sigma, n_batches, seed, sigma_biological=0.20,
+def build_sim_normal_shifts(sigma, n_batches, seed, sigma_biological=0.1,
                             n_samples=500, n_genes=50, n_z_dims=N_Z_DIMS):
     """One dataset: n_batches-1 shift vectors drawn ~ N(0, sigma^2 * I) over n_z_dims dims."""
     adata, h5ad_path = shift_magnitudes_multivariate_from_normal(
