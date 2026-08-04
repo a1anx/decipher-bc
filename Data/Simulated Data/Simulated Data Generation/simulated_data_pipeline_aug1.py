@@ -23,10 +23,6 @@ import anndata as ad
 
 from datetime import datetime
 
-from scib_metrics.nearest_neighbors import pynndescent
-from scib_metrics import ilisi_knn, graph_connectivity, silhouette_batch
-
-
 
 def simulate_multivariate(
     n_samples: int = 500,
@@ -128,7 +124,7 @@ def shift_magnitudes_multivariate_from_normal(
     n_batches: int = 5,          # number of batches (no separate baseline)
     shift_sigma: float = 0.0,    # std of the per-dim per-batch magnitude draw
     n_samples: int = 500,
-    n_genes: int = 50,
+    n_genes: int = 200,
     n_z_dims: int = 3,           # match simulate_multivariate default
     biological_sigma: float = 0.1,
     seed: int = 0,
@@ -210,7 +206,16 @@ def shift_magnitudes_multivariate_from_normal(
     adata_concat.uns["shift_matrix"] = shift_matrix    # raw, pre-normalization
     adata_concat.uns["n_z_dims"]     = n_z_dims
 
-    # Not saving the adata here but saving the trained adata
+    # # Saving the adata so that we can review the training reconstruction
+    # today = datetime.now().strftime("%m%d")
+    # script_dir = os.path.dirname(os.path.abspath(__file__))
+    # untrained_dir = os.path.join(script_dir,"..", "Simulated Adata", "reconstruction_eval", today, "untrained")
+    # os.makedirs(untrained_dir, exist_ok=True)
+    # untrained_h5ad_path = os.path.join(
+    #     untrained_dir, f"sigma{shift_sigma}_seed{seed}_{n_samples}_{n_genes}.h5ad"
+    # )
+    # adata_concat.write(untrained_h5ad_path)
+    # print(f"Saved untrained simulated adata to {untrained_h5ad_path}")
 
     return adata_concat
 
@@ -337,14 +342,177 @@ def train_and_compute_rho(model,
     return abs(rho), trained_h5ad_path, adata
 
 
+def train_and_compute_rho_r2(model, 
+                          decipher_seed,
+                          n_batches: int = 5,
+                          shift_sigma: float = 0.0,
+                          n_samples: int = 500,
+                          n_genes: int = 200,
+                          n_z_dims: int = 3,
+                          biological_sigma: float = 0.1,
+                          seed: int = 0,
+                          dim_z: int = None,
+                          ):
+    """
+    Inputs
+    ------
+    model : {"decipher", "decipher_vz", "decipher_vz2", "decipher_mf"}
+        Which Decipher variant to import and train.
+    decipher_seed : int
+        Random seed for Decipher's SVI training. Independent of the
+        simulation seed.
+    n_batches, shift_sigma, n_samples, n_genes, n_z_dims, biological_sigma, seed :
+        Passed through to shift_magnitudes_multivariate_from_normal.
+        See that function's docstring.
+    dim_z : int or None
+        Size of the model's own latent Z (DecipherConfig.dim_z). Defaults
+        to n_z_dims so model capacity matches the simulated ground-truth
+        dimensionality; pass explicitly to decouple them for a model-
+        capacity study (e.g. dim_z=10 on 3D-simulated data).
+
+    Returns
+    -------
+    rho : float
+        Spearman rank correlation (absolute value) between decipher_time
+        and latent_t on cells where decipher_time is not NaN.
+    trained_h5ad_path : str
+        Absolute path to the written trained AnnData file.
+    r2_overall : float
+        Reconstruction R^2 on log1p scale, pooled across all (cell, gene)
+        entries.
+    r2_per_gene_median : float
+        Median across genes of the per-gene log1p reconstruction R^2.
+        NaN genes (zero variance) are excluded.
+    adata : AnnData
+        The trained AnnData with Decipher outputs attached
+        (obsm["decipher_v"], obsm["decipher_z"], obs["decipher_time"],
+        obs["decipher_clusters"], uns["decipher"], uns["rho"],
+        uns["r2_overall"], uns["r2_per_gene_median"], plus simulation
+        ground truth). Same object that was written to disk.
+
+    Side effects
+    ------------
+    Writes `adata` to:
+        <script_dir>/../Simulated Adata/shift_sigma_sweep/<MMDD>/trained/
+            sigma{shift_sigma}_seed{seed}_{model_tag}.h5ad
+    Creates the directory tree if it does not exist. Overwrites existing
+    files with the same name.
+    """
+
+    adata = shift_magnitudes_multivariate_from_normal(
+        n_batches=n_batches,
+        shift_sigma=shift_sigma,
+        n_samples=n_samples,
+        n_genes=n_genes,
+        n_z_dims=n_z_dims,
+        biological_sigma=biological_sigma,
+        seed=seed
+    )
+
+    if dim_z is None:
+        dim_z = n_z_dims
+
+    if model == 'decipher_vz':
+        import decipher_vz as dc
+        from decipher_vz.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_vz'
+
+    elif model == 'decipher_vz2':
+        import decipher_vz2 as dc
+        from decipher_vz2.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_vz2'
+
+    elif model == 'decipher_mf':
+        import decipher_mf as dc
+        from decipher_mf.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_mf'
+
+    elif model == 'decipher':
+        import decipher as dc
+        from decipher.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher'
+
+    config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z)
+    decipher, _ = dc.tl.decipher_train(
+        adata, config,
+        plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"},
+    )
+
+    # Reconstruction diagnostic — computed right after training so we still
+    # have the in-memory decipher object with train_losses_ / val_losses_.
+    r2_result = dc.tl.reconstruction_r2_log1p(decipher, adata)
+    r2_overall = r2_result["r2_overall"]
+    r2_per_gene_median = float(np.nanmedian(r2_result["r2_per_gene"]))
+    adata.uns["r2_overall"] = r2_overall
+    adata.uns["r2_per_gene_median"] = r2_per_gene_median
+
+    # Save reconstruction diagnostic figure
+    fig, axes = dc.pl.reconstruction_r2_log1p(decipher, adata, figsize=(21, 5))
+    for ax in axes:
+        ax.title.set_fontsize(10)
+        ax.xaxis.label.set_fontsize(9)
+        ax.yaxis.label.set_fontsize(9)
+        ax.tick_params(labelsize=8)
+        if ax.get_legend() is not None:
+            for text in ax.get_legend().get_texts():
+                text.set_fontsize(8)
+    fig.suptitle(
+        f"{model_tag} | sigma={shift_sigma} | decipher seed={decipher_seed}",
+        y=1.02, fontsize=11,
+    )
+    today = datetime.now().strftime("%m%d")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    figs_dir = os.path.join(
+        script_dir, "..", "Simulated Adata", "shift_sigma_sweep", today, "figs",
+    )
+    os.makedirs(figs_dir, exist_ok=True)
+    fig_path = os.path.join(
+        figs_dir,
+        f"reconstruction_sigma{shift_sigma}_seed{seed}_{model_tag}_decipherseed_{decipher_seed}.png",
+    )
+    fig.savefig(fig_path, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+
+    # Compute ground truths
+    dc.tl.cell_clusters(adata, leiden_resolution=1.0, n_neighbors=10, seed=0)
+    filtered = adata.obs["decipher_clusters"].value_counts() > 10
+    filtered_ids = set(filtered[filtered].index)
+    ground_truths = adata.obs.groupby('decipher_clusters')['latent_t'].mean().sort_values().index.to_list()
+    ground_truths = [c for c in ground_truths if c in filtered_ids]
+    dc.tl.trajectories(adata, dc.tl.TConfig('trajectory', cluster_ids_list=ground_truths))
+    dc.tl.decipher_rotate_space(adata)
+
+    # Compute decipher time
+    dc.tl.decipher_time(adata)
+
+    # Compute and save rho
+    m = adata.obs["decipher_time"].notna()
+    rho, _ = spearmanr(adata.obs["decipher_time"][m], adata.obs["latent_t"][m])
+    adata.uns["rho"] = abs(rho)
+
+    # Save trained adata
+    trained_dir = os.path.join(
+        script_dir, "..", "Simulated Adata", "shift_sigma_sweep", today, "trained",
+    )
+    os.makedirs(trained_dir, exist_ok=True)
+    trained_h5ad_path = os.path.join(
+        trained_dir, f"sigma{shift_sigma}_seed{seed}_{model_tag}.h5ad"
+    )
+    adata.write(trained_h5ad_path)
+
+    return abs(rho), trained_h5ad_path, r2_overall, r2_per_gene_median, adata
+
+
 if __name__ == "__main__":
-    
+
     # ---- sweep ----
     # shift distribution is MVN(0, shift_sigma^2 * I) in n_z_dims
     shift_sigmas = [0.1, 0.5, 1.0, 2.0, 5.0, 7.5, 10.0]
-    seeds  = [0, 1, 2, 3, 4]    # multiple seeds: Decipher is non-identifiable
+    seeds  = [0, 1, 2]
     decipher_seeds = [1]  # one decipher_seed
     n_z_dims = 3
+    n_samples = 500
+    n_genes = 200
     biological_sigma = 0.1
     models = {  
         "Decipher-VZ": "decipher_vz",
@@ -376,15 +544,20 @@ if __name__ == "__main__":
                         "decipher_seed": decipher_seed,
                     }
                     try:
-                        rho, trained_path, _ = train_and_compute_rho(
+                        rho, trained_path, r2_overall, r2_per_gene_median, _ = train_and_compute_rho_r2(
                             model, decipher_seed,
                             shift_sigma=shift_sigma,
+                            n_samples = n_samples,
+                            n_genes = n_genes,
                             biological_sigma=biological_sigma,
                             seed=sd,
                             n_z_dims=n_z_dims,
                         )
                         record.update({
-                            "rho": rho, "trained_h5ad": trained_path, "error": None,
+                            "rho": rho, "trained_h5ad": trained_path,
+                            "r2_overall": r2_overall,
+                            "r2_per_gene_median": r2_per_gene_median,
+                            "error": None,
                         })
                     except Exception as e:
                         print(f"[{name}] n_z_dims={n_z_dims} shift_sigma={shift_sigma} "
@@ -392,6 +565,7 @@ if __name__ == "__main__":
                               f"failed: {type(e).__name__}: {e}")
                         record.update({
                             "rho": np.nan, "trained_h5ad": None,
+                            "r2_overall": np.nan, "r2_per_gene_median": np.nan,
                             "error": f"{type(e).__name__}: {e}",
                         })
                     run_log.append(record)

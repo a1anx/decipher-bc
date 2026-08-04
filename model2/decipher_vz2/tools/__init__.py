@@ -15,6 +15,7 @@ from decipher_vz2.tools.decipher import (
 )
 from ._decipher.data import decipher_load_model
 from ._decipher.decipher import DecipherConfig
+from decipher_vz2.tools.diagnostics import reconstruction_r2_log1p
 
 __all__ = [
     "cell_clusters",
@@ -31,4 +32,5 @@ __all__ = [
     "decipher_load_model",
     "DecipherConfig",
     "TConfig",
+    "reconstruction_r2_log1p",
 ]

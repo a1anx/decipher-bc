@@ -150,6 +150,8 @@ def decipher_train(
         config=decipher_config,
     )
     decipher.to(device)
+    decipher.train_losses_ = []  # per-epoch train ELBO (per-obs), for reconstruction diagnostic
+    decipher.val_losses_ = []  # per-epoch val NLL (per-obs), for reconstruction diagnostic
 
     optimizer = pyro.optim.ClippedAdam(
         {
@@ -204,11 +206,14 @@ def decipher_train(
                 f" {val_nll:.2f}"
             )
 
+        decipher.train_losses_.append(train_elbo / train_elbo_n_obs)
+
         decipher.eval()
         val_nll = (
             -predictive_log_likelihood(decipher, dataloader_val, n_samples=5) / adata_val.shape[0]
         )
         val_losses.append(val_nll)
+        decipher.val_losses_.append(val_nll)
         pbar.set_description(
             f"Epoch {epoch} (batch {len(train_losses)}/{n_batches}) | "
             f"| train elbo: {train_elbo / train_elbo_n_obs:.2f} (last epoch: {last_train_elbo:.2f}) | val ll:"

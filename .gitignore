@@ -1,6 +1,7 @@
 # Data files
 *.h5ad
 !Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0803/trained/*.h5ad
+!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0804/trained/*.h5ad
 
 # Trained model artifacts
 _decipher_models/
