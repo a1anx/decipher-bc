@@ -296,7 +296,7 @@ def train_and_compute_rho(model,
         import decipher_vz2 as dc
         from decipher_vz2.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher_vz2'
-    
+
     elif model == 'decipher_mf':
         import decipher_mf as dc
         from decipher_mf.tools._decipher import DecipherConfig as DecipherConfig
@@ -307,11 +307,26 @@ def train_and_compute_rho(model,
         from decipher.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher'
 
+    elif model == 'decipher_vz_add':
+        import decipher_vz_add as dc
+        from decipher_vz_add.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_vz_add'
+
+    elif model == 'decipher_vz2_add':
+        import decipher_vz2_add as dc
+        from decipher_vz2_add.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_vz2_add'
+
+    elif model == 'decipher_mf_add':
+        import decipher_mf_add as dc
+        from decipher_mf_add.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_mf_add'
+
     config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z)
     dc.tl.decipher_train(adata, config, plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"})
-    
+
     #Compute ground truths
-    dc.tl.cell_clusters(adata, leiden_resolution = 0.05, n_neighbors= 25, seed = 341)
+    dc.tl.cell_clusters(adata, leiden_resolution = 1.0, n_neighbors= 25, seed = 341)
     filtered = adata.obs["decipher_clusters"].value_counts()>10
     filtered_ids = set(filtered[filtered].index)
     ground_truths = adata.obs.groupby('decipher_clusters')['latent_t'].mean().sort_values().index.to_list()
@@ -432,6 +447,21 @@ def train_and_compute_rho_r2(model,
         from decipher.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher'
 
+    elif model == 'decipher_vz_add':
+        import decipher_vz_add as dc
+        from decipher_vz_add.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_vz_add'
+
+    elif model == 'decipher_vz2_add':
+        import decipher_vz2_add as dc
+        from decipher_vz2_add.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_vz2_add'
+
+    elif model == 'decipher_mf_add':
+        import decipher_mf_add as dc
+        from decipher_mf_add.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_mf_add'
+
     config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z)
     decipher, _ = dc.tl.decipher_train(
         adata, config,
@@ -508,23 +538,29 @@ if __name__ == "__main__":
     # ---- sweep ----
     # shift distribution is MVN(0, shift_sigma^2 * I) in n_z_dims
     shift_sigmas = [0.1, 0.5, 1.0, 2.0, 5.0, 7.5, 10.0]
-    seeds  = [0, 1, 2]
+    seeds  = [3, 4]
     decipher_seeds = [1]  # one decipher_seed
     n_z_dims = 3
     n_samples = 500
     n_genes = 200
     biological_sigma = 0.1
-    models = {  
+    models = {
         "Decipher-VZ": "decipher_vz",
         "Decipher-VZ2": "decipher_vz2",
         "Decipher-MF": "decipher_mf",
         "Base Decipher": "decipher",
+        "Decipher-VZ-Add": "decipher_vz_add",
+        "Decipher-VZ2-Add": "decipher_vz2_add",
+        "Decipher-MF-Add": "decipher_mf_add",
     }
     colors = {
         "Decipher-VZ": "#2E7D32",
         "Decipher-VZ2": "#1565C0",
         "Decipher-MF": "#F9A825",
         "Base Decipher": "#C62828",
+        "Decipher-VZ-Add": "#00897B",
+        "Decipher-VZ2-Add": "#7B1FA2",
+        "Decipher-MF-Add": "#AD1457",
     }
 
     today = datetime.now().strftime("%m%d")

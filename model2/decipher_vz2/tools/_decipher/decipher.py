@@ -160,9 +160,13 @@ class Decipher(nn.Module):
                 v = pyro.sample("v", prior)
             
             # v -> z prior, now conditioned on batch
+            # add instead of concat
             v_combined = torch.cat([v, batch_vec], dim=-1)
             z_loc, z_scale = self.decoder_v_to_z(v_combined)
+            #z_loc = z_loc + batch effect
             z_scale = softplus(z_scale)
+            # don't need activation function
+            
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
         
             # z -> x reconstruction, not conditioned on batch
