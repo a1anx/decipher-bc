@@ -367,6 +367,7 @@ def train_and_compute_rho_r2(model,
                           biological_sigma: float = 0.1,
                           seed: int = 0,
                           dim_z: int = None,
+                          beta: float = 0.1,
                           ):
     """
     Inputs
@@ -462,7 +463,7 @@ def train_and_compute_rho_r2(model,
         from decipher_mf_add.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher_mf_add'
 
-    config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z)
+    config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z, beta=beta)
     decipher, _ = dc.tl.decipher_train(
         adata, config,
         plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"},

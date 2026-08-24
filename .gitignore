@@ -16,6 +16,7 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Claude Code
+# Claude Stuff
 .claude/
 CLAUDE.md
+batch_shift_review_handoff.md
