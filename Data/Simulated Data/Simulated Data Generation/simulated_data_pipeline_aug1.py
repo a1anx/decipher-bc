@@ -33,6 +33,10 @@ def simulate_multivariate(
     biological_sigma: float = 0.1,  # biological noise at z level
     seed: int = 0,                  # what is shared ACROSS batches. fixes w_bio (t→z projection) and W (z→x decoder)
     cell_seed: int = 0,             # per-cell / per-batch randomness - latent_t values, noise around z_mean, and the shift draw
+    batch_label: str = None,        # what goes in adata.obs["batch"]; see the note at the assignment below
+    gene_shift: np.ndarray = None,  # ADDED 2026-08-25 (A1/A2): length n_genes. When given, this
+                                    # batch's offset is applied in GENE space after `latent_z @ W`
+                                    # and NOTHING is added to z_mean. See the note at `pre_x`.
 ):
     """
     Simulate one batch's worth of cells under mirroring Decipher-BC's generative hierarchy:
@@ -90,28 +94,106 @@ def simulate_multivariate(
     w_bio = proj_rng.standard_normal((1, n_z_dims))  # shape (1, n_z_dims)
     z_mean = latent_t @ w_bio  # shape (n_samples, n_z_dims)
     
-    # batch shift: MVN over all n_z_dims 
-    if shift is None:
-        if shift_cov is None:
-            shift_cov = np.eye(n_z_dims)               # identity default
-        shift = rng.multivariate_normal(np.zeros(n_z_dims), shift_cov)
+    # CHANGED 2026-08-25 -- A1/A2 (batch_shift_review_handoff.md Part 7).
+    #
+    # Two mutually exclusive places the batch effect can live. gene_shift=None keeps the
+    # original z-mode path byte-for-byte, so every existing call is unchanged.
+    #
+    #   z-mode    (gene_shift is None) -- offset added to z_mean, BEFORE `@ W`.
+    #             Reaches gene space only through W's n_z_dims rows, so it is confined to
+    #             an n_z_dims-dimensional slice of the n_genes gene space.
+    #   gene-mode (gene_shift given)   -- offset added to pre_x, AFTER `@ W`, and NOTHING
+    #             is added to z_mean. A1/A2 decided replace, not alongside: running both
+    #             confounds the two mechanisms and neither column of the 2x2 in Part 6.4
+    #             would mean anything.
+    #
+    # Consequence worth knowing downstream: in gene-mode `latent_z` carries NO batch
+    # offset, so obs["latent_z0..2"] is batch-free and the "true shift removed" ceiling in
+    # Part 5.1 has nothing to remove.
+    if gene_shift is None:
+        # ---- z-mode (original path) ----
+        # batch shift: MVN over all n_z_dims
+        if shift is None:
+            if shift_cov is None:
+                shift_cov = np.eye(n_z_dims)               # identity default
+            shift = rng.multivariate_normal(np.zeros(n_z_dims), shift_cov)
 
-    # normalize by sqrt(n_z_dims) so σ has the same meaning across dim choices
-    shift = shift / np.sqrt(n_z_dims)
-    
-    z_mean = z_mean + shift 
-    
+        # normalize by sqrt(n_z_dims) so σ has the same meaning across dim choices
+        shift = shift / np.sqrt(n_z_dims)
+
+        z_mean = z_mean + shift
+    else:
+        # ---- gene-mode ----
+        # z is left batch-free; the offset is applied after the projection, below.
+        gene_shift = np.asarray(gene_shift, dtype=float).ravel()
+        if gene_shift.shape[0] != n_genes:
+            raise ValueError(
+                f"gene_shift has length {gene_shift.shape[0]}, expected n_genes={n_genes}"
+            )
+        shift = np.zeros(n_z_dims)
+
     # sample z ~ MVN(z_mean, biological_sigma^2 * I)
     latent_z = rng.normal(z_mean, biological_sigma)     # shape (n, n_z_dims)
 
     # --- x: z → x ---
     W = np.random.default_rng(seed + 1).standard_normal((n_z_dims, n_genes))
     pre_x = latent_z @ W
+    pre_x_nobatch = None
+    if gene_shift is not None:
+        # ADDED 2026-08-25 -- the gene-mode analogue of Part 5.1's "true shift removed"
+        # ceiling. In z-mode that ceiling is computed by removing the shift from
+        # obs["latent_z0..2"], but in gene-mode latent_z carries NO batch offset (measured:
+        # per-batch spread 0.006 against a within-batch std of 0.108), so there is nothing
+        # there to remove and that row of the analysis has no analogue as written.
+        #
+        # Keeping the pre-offset matrix makes the ceiling EXACT rather than approximate.
+        # Subtracting gene_shift from the final integer counts downstream would not
+        # recover it, because round / min-subtract / clip happen after the offset is added
+        # and are not invertible.
+        pre_x_nobatch = pre_x.copy()
+
+        # (n_samples, n_genes) + (n_genes,) broadcasts over cells: every cell in this
+        # batch gets the same n_genes-long offset. This is the whole of gene-mode.
+        pre_x = pre_x + gene_shift
 
     adata = sc.AnnData(X=pre_x)
+    if pre_x_nobatch is not None:
+        # carried through ad.concat, then converted to counts in the wrapper
+        adata.layers["pre_x_nobatch"] = pre_x_nobatch
     adata.obs["latent_t"]   = latent_t[:, 0]
-    adata.obs["shift"]      = str(np.round(shift, 2).tolist())
-    adata.obs["batch"]      = "_".join(f"{s:.2f}" for s in shift)
+    # CHANGED 2026-08-25 (A1/A2): in gene-mode `shift` is all zeros by construction, and
+    # writing "[0.0, 0.0, 0.0]" here would read as "this batch has no offset" when in fact
+    # it has an n_genes-long one. Say so instead; the real offset is in
+    # uns["gene_shift_matrix"], which is (n_batches, n_genes) and too large for an obs column.
+    # WAS: adata.obs["shift"] = str(np.round(shift, 2).tolist())
+    adata.obs["shift"]      = (
+        "gene_mode -- see uns['gene_shift_matrix']" if gene_shift is not None
+        else str(np.round(shift, 2).tolist())
+    )
+    # CHANGED 2026-08-25 -- batch label no longer encodes the shift vector.
+    #
+    # WAS: adata.obs["batch"] = "_".join(f"{s:.2f}" for s in shift)
+    #
+    # Why: pandas assigns category codes by sorting the label strings ALPHABETICALLY,
+    # and batch_shift.weight row b belongs to code b. uns["shift_matrix"] is stored in
+    # GENERATION order. With shift-vector labels the two orders disagree -- on
+    # sigma0.5_seed0, zero of the five rows lined up, because '-0.09_...' sorts last.
+    # Anything comparing batch_shift.weight to shift_matrix row-by-row was silently
+    # comparing different batches, which reads as "the mechanism learned nothing".
+    # "batch00" < "batch01" < ... sorts into generation order, so code order == gen
+    # order and no permutation is ever needed.
+    #
+    # Nothing is lost: obs["shift"] on the line above already holds the same
+    # normalized shift vector, in an easier form to parse than the label was.
+    # Training is unaffected either way -- the model never reads shift_matrix, and
+    # the codes were always internally consistent. This is a fix for ANALYSIS.
+    #
+    # batch_label=None keeps the old behaviour, so any direct call to
+    # simulate_multivariate that does not pass it is unchanged.
+    adata.obs["batch"]      = (
+        batch_label if batch_label is not None
+        else "_".join(f"{s:.2f}" for s in shift)
+    )
     for i in range(latent_z.shape[1]):
         adata.obs[f"latent_z{i}"] = latent_z[:, i]
     adata.uns["latent_z_names"] = [f"latent_z{i}" for i in range(latent_z.shape[1])]
@@ -128,6 +210,8 @@ def shift_magnitudes_multivariate_from_normal(
     n_z_dims: int = 3,           # match simulate_multivariate default
     biological_sigma: float = 0.1,
     seed: int = 0,
+    batch_mode: str = "z",       # ADDED 2026-08-25 (A1/A2): "z" or "genes". Default "z"
+                                 # reproduces every pre-2026-08-25 call exactly.
 ):
     """
     Draw one shift vector per batch and concatenate simulated batches
@@ -167,25 +251,48 @@ def shift_magnitudes_multivariate_from_normal(
     # stream (`seed`), decoder stream (`seed+1`), or cell streams (`seed+i+1`)
     mag_rng = np.random.default_rng(seed + 1000)
 
-    # (n_batches, n_z_dims): one shift vector per batch, all drawn together
-    # shift distribution is MVN(0, shift_sigma^2 * I) in n_z_dims
-    shift_matrix = mag_rng.multivariate_normal(
-        mean=np.zeros(n_z_dims),
-        cov=(shift_sigma ** 2) * np.eye(n_z_dims), # shift components across dimensions are independent. 
-        size=n_batches,
-    )
+    # CHANGED 2026-08-25 -- A1/A2. Exactly one of shift_matrix / gene_shift_matrix is
+    # populated; the other stays None. A2 decided REPLACE, not alongside.
+    if batch_mode not in ("z", "genes"):
+        raise ValueError(f"batch_mode must be 'z' or 'genes', got {batch_mode!r}")
+
+    if batch_mode == "z":
+        # (n_batches, n_z_dims): one shift vector per batch, all drawn together
+        # shift distribution is MVN(0, shift_sigma^2 * I) in n_z_dims
+        shift_matrix = mag_rng.multivariate_normal(
+            mean=np.zeros(n_z_dims),
+            cov=(shift_sigma ** 2) * np.eye(n_z_dims), # shift components across dimensions are independent.
+            size=n_batches,
+        )
+        gene_shift_matrix = None
+    else:
+        # (n_batches, n_genes): a free offset per gene per batch, added after `@ W`.
+        # No /sqrt() normalization here -- that existed in z-mode so shift_sigma meant the
+        # same thing across n_z_dims choices, and there is no such choice to normalize
+        # against in gene space. Scales are already comparable: at shift_sigma=0.5 z-mode
+        # produces a per-gene offset with std 0.464 and this draw gives 0.500 (Part 6.4).
+        shift_matrix = None
+        gene_shift_matrix = mag_rng.normal(0.0, shift_sigma, size=(n_batches, n_genes))
 
     adata_concat = None
-    # i is the batch index, shift is the raw shift vector (not normalized by sqrt(n_z_dims))
-    for i, shift in enumerate(shift_matrix):
+    # i is the batch index. In z-mode `shift` is that batch's raw (un-normalized) z-space
+    # vector and gene_shift is None; in gene-mode the reverse.
+    for i in range(n_batches):
+        shift = None if shift_matrix is None else shift_matrix[i]
+        gene_shift = None if gene_shift_matrix is None else gene_shift_matrix[i]
         adata_sim = simulate_multivariate( # this function normalizes by sqrt(n_z_dims) internally
             n_samples=n_samples,
             n_genes=n_genes,
             n_z_dims=n_z_dims,
-            shift=shift,    
+            shift=shift,
+            gene_shift=gene_shift,
             biological_sigma=biological_sigma,
             seed=seed,
             cell_seed=seed + i + 1,
+            # ADDED 2026-08-25 -- makes pandas category codes match generation order,
+            # so batch_shift.weight[b] and shift_matrix[b] are the same batch.
+            # See the note at the obs["batch"] assignment in simulate_multivariate.
+            batch_label=f"batch{i:02d}",
         )
         if adata_concat is None:
             adata_concat = adata_sim
@@ -201,10 +308,35 @@ def shift_magnitudes_multivariate_from_normal(
     adata_concat.X = X_all
     adata_concat.layers["counts"] = X_all.copy()
 
+    # ADDED 2026-08-25: the exact gene-mode ceiling. Identical count conversion applied to
+    # the batch-free pre_x, so layers["counts_nobatch"] is what this dataset would have
+    # been with gene_shift = 0 and everything else held fixed. Batch silhouette measured
+    # on it is the "perfect correction" reference that Part 5.1 gets from latent_z in
+    # z-mode. The per-gene min-subtract differs between the two matrices, but that is a
+    # per-gene constant and cannot move batch structure.
+    if batch_mode == "genes":
+        C = np.asarray(adata_concat.layers["pre_x_nobatch"])
+        adata_concat.layers["counts_nobatch"] = np.clip(
+            np.round(C - C.min(axis=0)), 0, None
+        ).astype(int)
+        del adata_concat.layers["pre_x_nobatch"]
+
     # record swept parameters so downstream plots can read them back
     adata_concat.uns["shift_sigma"]  = shift_sigma
-    adata_concat.uns["shift_matrix"] = shift_matrix    # raw, pre-normalization
     adata_concat.uns["n_z_dims"]     = n_z_dims
+    # CHANGED 2026-08-25 (A1/A2): uns cannot hold None, so store only the key that applies,
+    # plus batch_mode so downstream code can tell which one to look for. Reading
+    # uns["shift_matrix"] unconditionally will now KeyError on a gene-mode file -- that is
+    # deliberate and loud, rather than silently handing back a stale or wrong-shaped array.
+    adata_concat.uns["batch_mode"]   = batch_mode
+    if batch_mode == "z":
+        # (n_batches, n_z_dims), raw / pre-normalization. simulate_multivariate divides by
+        # sqrt(n_z_dims) internally, so this needs /sqrt(n_z_dims) before comparing it to
+        # anything measured off latent_z. See Part 4 verification step 5.
+        adata_concat.uns["shift_matrix"] = shift_matrix
+    else:
+        # (n_batches, n_genes), applied as-is -- no normalization to undo.
+        adata_concat.uns["gene_shift_matrix"] = gene_shift_matrix
 
     # # Saving the adata so that we can review the training reconstruction
     # today = datetime.now().strftime("%m%d")
@@ -368,6 +500,11 @@ def train_and_compute_rho_r2(model,
                           seed: int = 0,
                           dim_z: int = None,
                           beta: float = 0.1,
+                          notebook_tag: str = None,
+                          batch_mode: str = "z",   # ADDED 2026-08-25 (C13b): "z" or
+                                                   # "genes", passed straight to the
+                                                   # generator. Default leaves 9.7 /
+                                                   # 9.8.1 unchanged.
                           ):
     """
     Inputs
@@ -410,9 +547,12 @@ def train_and_compute_rho_r2(model,
     ------------
     Writes `adata` to:
         <script_dir>/../Simulated Adata/shift_sigma_sweep/<MMDD>/trained/
-            sigma{shift_sigma}_seed{seed}_{model_tag}.h5ad
+            {notebook_tag}_sigma{shift_sigma}_seed{seed}_{model_tag}.h5ad
+    with the `{notebook_tag}_` prefix omitted when `notebook_tag` is None.
     Creates the directory tree if it does not exist. Overwrites existing
-    files with the same name.
+    files with the same name -- so two sweeps on the same calendar day that
+    both leave `notebook_tag` unset will overwrite each other's h5ads.
+    Pass a distinct `notebook_tag` per notebook to keep runs separate.
     """
 
     adata = shift_magnitudes_multivariate_from_normal(
@@ -422,7 +562,8 @@ def train_and_compute_rho_r2(model,
         n_genes=n_genes,
         n_z_dims=n_z_dims,
         biological_sigma=biological_sigma,
-        seed=seed
+        seed=seed,
+        batch_mode=batch_mode,   # ADDED 2026-08-25 (C13b)
     )
 
     if dim_z is None:
@@ -462,6 +603,33 @@ def train_and_compute_rho_r2(model,
         import decipher_mf_add as dc
         from decipher_mf_add.tools._decipher import DecipherConfig as DecipherConfig
         model_tag = 'decipher_mf_add'
+
+    # ADDED 2026-08-25 -- B4. The p(x|z,b) arms. No `_add` suffix, because B6 deletes the
+    # additive batch_shift table that suffix referred to.
+    elif model == 'decipher_zx':
+        import decipher_zx as dc
+        from decipher_zx.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_zx'
+
+    elif model == 'decipher_zx2':
+        import decipher_zx2 as dc
+        from decipher_zx2.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_zx2'
+
+    elif model == 'decipher_mf2':
+        import decipher_mf2 as dc
+        from decipher_mf2.tools._decipher import DecipherConfig as DecipherConfig
+        model_tag = 'decipher_mf2'
+
+    else:
+        # ADDED 2026-08-25: an unrecognised name used to fall through the chain and die on
+        # `NameError: DecipherConfig` below, which reads like an import problem rather than
+        # a typo in the model name.
+        raise ValueError(
+            f"unknown model {model!r}. Expected one of: decipher, decipher_vz, "
+            f"decipher_vz2, decipher_mf, decipher_vz_add, decipher_vz2_add, "
+            f"decipher_mf_add, decipher_zx, decipher_zx2, decipher_mf2"
+        )
 
     config = DecipherConfig(learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z, beta=beta)
     decipher, _ = dc.tl.decipher_train(
@@ -526,8 +694,19 @@ def train_and_compute_rho_r2(model,
         script_dir, "..", "Simulated Adata", "shift_sigma_sweep", today, "trained",
     )
     os.makedirs(trained_dir, exist_ok=True)
+    # CHANGED 2026-08-24 -- the h5ad filename carried no notebook tag, so a second sweep on
+    # the same calendar day silently overwrote the first one's trained files in place.
+    # NOTEBOOK_TAG in the notebooks guards only the CSVs and PNGs, not this path. 9.8.1
+    # (beta=0.3) destroyed 6 of 9.7's (beta=0.1) h5ads that way before the remaining 54 were
+    # copied to shift_sigma_sweep/0824_9.7_beta0.1/. Pass notebook_tag="9.8.1" to prefix the
+    # filename. Default None keeps the old name, so 9.7's existing sweep log -- which stores
+    # these paths in its trained_h5ad column -- still resolves.
+    # WAS: trained_h5ad_path = os.path.join(
+    # WAS:     trained_dir, f"sigma{shift_sigma}_seed{seed}_{model_tag}.h5ad"
+    # WAS: )
+    prefix = f"{notebook_tag}_" if notebook_tag else ""
     trained_h5ad_path = os.path.join(
-        trained_dir, f"sigma{shift_sigma}_seed{seed}_{model_tag}.h5ad"
+        trained_dir, f"{prefix}sigma{shift_sigma}_seed{seed}_{model_tag}.h5ad"
     )
     adata.write(trained_h5ad_path)
 

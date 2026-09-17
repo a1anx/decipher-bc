@@ -93,11 +93,31 @@ class Decipher(nn.Module):
         self.config = config
         self.dummy_param = nn.Parameter(torch.empty(0))
         
-        # ---- per-batch additive shift in z-space (shared by decoder and encoder) ----
-        self.batch_shift = torch.nn.Embedding(
-            num_embeddings=config.n_batches,
-            embedding_dim=config.dim_z
-        )
+        # ---- per-batch additive shift in z space ----
+        # REPLACED 2026-08-24 -- fix 2 + fix 3 + fix 7 (batch_shift_review_handoff.md).
+        #
+        # WAS: a single table, used in BOTH model() and guide(), left at nn.Embedding's
+        # default Normal(0,1) initialization:
+        #
+        #     self.batch_shift = torch.nn.Embedding(
+        #         num_embeddings=config.n_batches,
+        #         embedding_dim=config.dim_z
+        #     )
+        #
+        # Three problems with that, all fixed here:
+        #  fix 2 (§2.1) -- sharing ONE object across both edges makes the shift cancel
+        #    exactly, on every sample, out of the z log-density ratio. The gradient that
+        #    identifies it in model 1 was algebraically deleted. The plate diagram draws
+        #    two distinct edges into z, so there are now two tables.
+        #  fix 3 -- nn.Embedding defaults to Normal(0,1), measured per-dim std ~1.02,
+        #    against a true per-batch shift std of 0.058-0.173 and a decoder_v_to_z
+        #    output layer whose weights start at std ~0.073. The shift started ~10x
+        #    larger than the signal it perturbs. Zero is the standard start for an
+        #    intercept, and at zero the z prior is exactly base Decipher's.
+        #  fix 7 -- nn.Embedding(0, dim_z) with n_batches=0 raised IndexError against
+        #    the zeros fallback instead of degrading to the batch-blind model.
+        self.batch_shift_prior = self._make_batch_shift(config)  # generative edge, model()
+        self.batch_shift_post = self._make_batch_shift(config)  # variational edge, guide()
         # -------------------------
 
         # 2. Encoder (batch-blind network; batch shift added to z_loc after)
@@ -134,6 +154,42 @@ class Decipher(nn.Module):
     def device(self):
         return self.dummy_param.device
 
+    # ---- batch-shift helpers (added 2026-08-24, fixes 2/3/5/7) ----
+
+    @staticmethod
+    def _make_batch_shift(config):
+        """Build one zero-initialized (n_batches, dim_z) shift table.
+
+        Returns None when the model has no batches, so every lookup site degrades to
+        the batch-blind model instead of raising IndexError (fix 7).
+        """
+        if config.n_batches == 0:
+            return None
+        table = torch.nn.Embedding(
+            num_embeddings=config.n_batches,
+            embedding_dim=config.dim_z,
+        )
+        torch.nn.init.zeros_(table.weight)  # fix 3: intercepts start at zero
+        return table
+
+    def _shift(self, table, batch_idx, like):
+        """Per-cell shift rows, shape (n_cells, dim_z). Zeros when there is no table."""
+        if table is None:
+            return like.new_zeros(like.shape[0], self.config.dim_z)
+        return table(batch_idx)
+
+    def _to_common_frame(self, z_raw, table, batch_idx, like):
+        """Move every cell into one shared frame (fix 5).
+
+        Subtracts the cell's own batch row and adds the mean row, so all batches sit in
+        the same frame and `z_raw - z` is the centred per-batch shift. Centring on the
+        mean rather than batch 0's row avoids privileging whichever batch sorts first
+        and makes finding 8 (no zero-sum constraint) explicit.
+        """
+        if table is None:
+            return z_raw
+        return z_raw - self._shift(table, batch_idx, like) + table.weight.mean(dim=0, keepdim=True)
+
     def model(self, x, batch_idx=None):
         pyro.module("decipher", self)
 
@@ -159,7 +215,9 @@ class Decipher(nn.Module):
             
             # v -> z prior: batch-blind decoder, batch enters as an additive shift on z_loc
             z_loc, z_scale = self.decoder_v_to_z(v)
-            z_loc = z_loc + self.batch_shift(batch_idx)
+            # fix 2: this is the GENERATIVE edge b -> z, so it uses batch_shift_prior.
+            # WAS: z_loc = z_loc + self.batch_shift(batch_idx)   # same object as guide()
+            z_loc = z_loc + self._shift(self.batch_shift_prior, batch_idx, x)
             z_scale = softplus(z_scale)
 
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
@@ -187,7 +245,9 @@ class Decipher(nn.Module):
             x = torch.log1p(x)
             # encoder_x_to_z is batch-blind; batch shift added to z_loc after
             z_loc, z_scale = self.encoder_x_to_z(x)
-            z_loc = z_loc + self.batch_shift(batch_idx)
+            # fix 2: this is the VARIATIONAL edge b -> z, so it uses batch_shift_post.
+            # WAS: z_loc = z_loc + self.batch_shift(batch_idx)   # same object as model()
+            z_loc = z_loc + self._shift(self.batch_shift_post, batch_idx, x)
             z_scale = softplus(z_scale) + self._epsilon
             posterior_z = dist.Normal(z_loc, z_scale).to_event(1)
             z = pyro.sample("z", posterior_z)
@@ -206,6 +266,29 @@ class Decipher(nn.Module):
         return z_loc, v_loc, z_scale, v_scale
 
     def compute_v_z_numpy(self, x: np.array, batch_idx=None):
+        """Compute decipher_v, decipher_z and decipher_z_raw for the given counts.
+
+        CHANGED 2026-08-24 -- fix 5. Previously returned only (v, z), where z was
+        `encoder_x_to_z(x) + batch_shift[0]` because callers never passed batch_idx.
+        Model 1 meanwhile exported `encoder_x_to_z(x)` with no shift term at all, so the
+        three arms were reporting different quantities under the same column name and
+        `decipher_z` was not comparable across them (finding 5). Since decipher_z drives
+        Leiden -> clusters -> trajectories -> decipher_time -> rho (§2b), that
+        inconsistency reached the headline metric. Both coordinates are now returned,
+        defined identically in all three arms.
+
+        Returns
+        -------
+        v : (n_cells, dim_v)
+            The decipher v space.
+        z : (n_cells, dim_z)
+            Batch-corrected z: every cell moved into one shared frame. Use for Leiden,
+            trajectories, integration metrics and biology plots.
+        z_raw : (n_cells, dim_z)
+            The coordinate the guide actually produces, batch effect included. Use for
+            anything feeding decoder_z_to_x -- the counts it reproduces still contain
+            the batch effect.
+        """
         if type(x) == np.ndarray:
             x = torch.tensor(x, dtype=torch.float32)
 
@@ -214,15 +297,31 @@ class Decipher(nn.Module):
 
         x = torch.log1p(x)
         z_loc, _ = self.encoder_x_to_z(x)
-        z_loc = z_loc + self.batch_shift(batch_idx)
-        zx = torch.cat([z_loc, x], dim=-1)                                   # unchanged
-        v_loc, _ = self.encoder_zx_to_v(zx)
-        return v_loc.detach().numpy(), z_loc.detach().numpy()
+        # WAS: z_loc = z_loc + self.batch_shift(batch_idx)
+        z_raw = z_loc + self._shift(self.batch_shift_post, batch_idx, x)
+        z = self._to_common_frame(z_raw, self.batch_shift_post, batch_idx, x)
 
-    def impute_gene_expression_numpy(self, x):
+        # encoder_zx_to_v is fed z_raw, which is what it saw during training. Feeding it
+        # the corrected z would be an input it was never fitted on (finding 1).
+        zx = torch.cat([z_raw, x], dim=-1)
+        v_loc, _ = self.encoder_zx_to_v(zx)
+        return v_loc.detach().numpy(), z.detach().numpy(), z_raw.detach().numpy()
+
+    def impute_gene_expression_numpy(self, x, batch_idx=None):
+        """Reconstruct counts from the guide's z.
+
+        CHANGED 2026-08-24 -- fix 1. `batch_idx` was not a parameter, so the call to
+        guide() below hit the all-zeros fallback and reconstructed EVERY cell as if it
+        belonged to batch 0. Training used batch_shift_post[b]; scoring used
+        batch_shift_post[0], so r2_overall and r2_per_gene_median were wrong for 4 of
+        the 5 batches. Callers now pass the real codes via get_batch_idx().
+        """
         if type(x) == np.ndarray:
             x = torch.tensor(x, dtype=torch.float32)
-        z_loc, _, _, _ = self.guide(x)
+        # WAS: z_loc, _, _, _ = self.guide(x)
+        # guide() returns the raw (batch-containing) z, which is what decoder_z_to_x
+        # expects -- the observed counts still contain the batch effect.
+        z_loc, _, _, _ = self.guide(x, batch_idx)
         mu = self.decoder_z_to_x(z_loc)
         mu = softmax(mu, dim=-1)
         library_size = x.sum(axis=-1, keepdim=True)

@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from decipher_mf_add.tools._decipher.data import get_dense_X
+from decipher_mf_add.tools._decipher.data import get_batch_idx, get_dense_X
 
 
 def reconstruction_r2_log1p(decipher, adata):
@@ -28,9 +28,18 @@ def reconstruction_r2_log1p(decipher, adata):
     x = get_dense_X(adata)
     decipher.eval()
 
+    # fix 1 (2026-08-24): derive the real batch codes instead of letting
+    # impute_gene_expression_numpy fall back to "every cell is batch 0". Without this,
+    # r2_overall and r2_per_gene_median below were computed against reconstructions that
+    # used batch_shift_post[0] for all cells, while training used batch_shift_post[b] --
+    # wrong for 4 of the 5 batches, and biased downward since the wrong shift can only
+    # add reconstruction error.
+    batch_idx = get_batch_idx(adata, decipher.config)
+
     # impute_gene_expression_numpy returns library_size * mu on counts scale,
     # so log1p(x) vs log1p(x_hat) is the correct comparison (no scale correction).
-    x_hat = decipher.impute_gene_expression_numpy(x)
+    # WAS: x_hat = decipher.impute_gene_expression_numpy(x)
+    x_hat = decipher.impute_gene_expression_numpy(x, batch_idx=batch_idx)
 
     x_log = np.log1p(x.astype(float))
     x_hat_log = np.log1p(np.clip(x_hat, 0, None))

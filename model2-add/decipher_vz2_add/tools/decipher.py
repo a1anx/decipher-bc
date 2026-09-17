@@ -18,6 +18,7 @@ from decipher_vz2_add.tools._decipher.data import (
     decipher_load_model,
     decipher_save_model,
     make_data_loader_from_adata,
+    get_batch_idx,  # added 2026-08-24 (fix 1 / fix 5)
     get_dense_X,
 )
 # Stale references to the old `decipher` package name; decipher_vz2_add has its own copies of these.
@@ -192,12 +193,33 @@ def decipher_train(
     decipher.train_losses_ = []  # per-epoch train ELBO (per-obs), for reconstruction diagnostic
     decipher.val_losses_ = []  # per-epoch val NLL (per-obs), for reconstruction diagnostic
 
-    optimizer = pyro.optim.ClippedAdam(
-        {
-            "lr": decipher_config.learning_rate,
-            "weight_decay": 1e-4,
-        }
-    )
+    # fix 4 (2026-08-24): exclude the batch-shift tables from weight decay.
+    #
+    # WAS: optimizer = pyro.optim.ClippedAdam(
+    #          {
+    #              "lr": decipher_config.learning_rate,
+    #              "weight_decay": 1e-4,
+    #          }
+    #      )
+    #
+    # ClippedAdam adds weight_decay * parameter to every registered gradient, and
+    # pyro.module("decipher", self) registers the shift tables. That is a shrink-to-zero
+    # prior on a per-batch intercept, which is unmotivated on its own terms -- and per
+    # §2.3 the loss is flat between "the shift absorbs the batch effect" and "the shift
+    # is zero and v carries the batch instead". Weight decay pulls along exactly that
+    # flat direction, so it has been the de facto tie-breaker, and it breaks the tie
+    # toward the uncorrected solution.
+    #
+    # Pyro 1.9.1's per-parameter form passes a single normalized name that KEEPS the
+    # module prefix (e.g. "decipher.batch_shift_prior.weight"), so this has to be a
+    # substring test rather than an equality check.
+    def _per_param_optim_args(param_name):
+        args = {"lr": decipher_config.learning_rate, "weight_decay": 1e-4}
+        if "batch_shift" in param_name:
+            args["weight_decay"] = 0.0  # per-batch intercept: no shrinkage
+        return args
+
+    optimizer = pyro.optim.ClippedAdam(_per_param_optim_args)
     elbo = Trace_ELBO()
     svi = SVI(decipher.model, decipher.guide, optimizer, elbo)
     gif_maker = GIFMaker(dpi=120)
@@ -401,6 +423,12 @@ def decipher_rotate_space(
         z_sign_correction = np.sign(z_v_corr[:dim_z, dim_z:].sum(axis=1))
         adata.obsm["decipher_z_not_rotated"] = adata.obsm["decipher_z"].copy()
         adata.obsm["decipher_z"] = adata.obsm["decipher_z"] * z_sign_correction
+        # fix 5 (2026-08-24): decipher_z_raw has to take the SAME sign flip, otherwise
+        # the two coordinates end up in different frames and the identity
+        # `decipher_z_raw - decipher_z == centred per-batch shift` silently breaks.
+        if "decipher_z_raw" in adata.obsm:
+            adata.obsm["decipher_z_raw_not_rotated"] = adata.obsm["decipher_z_raw"].copy()
+            adata.obsm["decipher_z_raw"] = adata.obsm["decipher_z_raw"] * z_sign_correction
 
 
 def decipher_gene_imputation(adata):
@@ -417,7 +445,10 @@ def decipher_gene_imputation(adata):
         The imputed gene expression.
     """
     decipher = decipher_load_model(adata)
-    imputed = decipher.impute_gene_expression_numpy(adata.X.toarray())
+    # fix 1 (2026-08-24): reconstruct each cell in its own batch, not batch 0.
+    # WAS: imputed = decipher.impute_gene_expression_numpy(adata.X.toarray())
+    batch_idx = get_batch_idx(adata, decipher.config)
+    imputed = decipher.impute_gene_expression_numpy(adata.X.toarray(), batch_idx=batch_idx)
     adata.layers["decipher_imputed"] = imputed
     logging.info("Added `.layers['imputed']`: the Decipher imputed data.")
 
@@ -462,8 +493,22 @@ def _decipher_to_adata(decipher, adata):
         The decipher z space.
     """
     decipher.eval()
-    latent_v, latent_z = decipher.compute_v_z_numpy(get_dense_X(adata))
+    # fix 5 (2026-08-24): export both z coordinates, and pass the real batch codes.
+    #
+    # WAS: latent_v, latent_z = decipher.compute_v_z_numpy(get_dense_X(adata))
+    #
+    # With no batch_idx, compute_v_z_numpy assigned every cell to batch 0. For z that
+    # was one global constant and so harmless on its own, but it meant models 2/3
+    # exported the batch-corrected coordinate while model 1 exported the uncorrected
+    # one -- the same underlying model (§2.2) reporting opposite quantities under the
+    # same column name. Both are now written, defined identically in all three arms.
+    batch_idx = get_batch_idx(adata, decipher.config)
+    latent_v, latent_z, latent_z_raw = decipher.compute_v_z_numpy(
+        get_dense_X(adata), batch_idx=batch_idx
+    )
     adata.obsm["decipher_v"] = latent_v
     adata.obsm["decipher_z"] = latent_z
+    adata.obsm["decipher_z_raw"] = latent_z_raw
     logging.info("Added `.obsm['decipher_v']`: the Decipher v space.")
-    logging.info("Added `.obsm['decipher_z']`: the Decipher z space.")
+    logging.info("Added `.obsm['decipher_z']`: the Decipher z space (batch-corrected).")
+    logging.info("Added `.obsm['decipher_z_raw']`: the Decipher z space (batch effect included).")

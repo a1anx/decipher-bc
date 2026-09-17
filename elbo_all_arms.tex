@@ -1,0 +1,190 @@
+% ELBOs for the six Decipher-BC batch-conditioning arms.
+% Transcribed from the code on 2026-08-25; line numbers refer to
+% <arm>/tools/_decipher/decipher.py.  Identifiers are the code's own --
+% no symbol is introduced for a network, because the Decipher paper uses
+% f for a decoder and reusing it here would read backwards.
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+
+% --- network names, kept verbatim from the code ---
+\newcommand{\encxz}{\texttt{encoder\_x\_to\_z}}
+\newcommand{\enczxv}{\texttt{encoder\_zx\_to\_v}}
+\newcommand{\encxv}{\texttt{encoder\_x\_to\_v}}
+\newcommand{\decvz}{\texttt{decoder\_v\_to\_z}}
+\newcommand{\deczx}{\texttt{decoder\_z\_to\_x}}
+\newcommand{\bshift}{\texttt{batch\_shift}}
+\newcommand{\bprior}{\texttt{batch\_shift\_prior}}
+\newcommand{\bpost}{\texttt{batch\_shift\_post}}
+\newcommand{\thetapar}{\texttt{theta}}
+\newcommand{\sfp}{\operatorname{softplus}}
+\newcommand{\smax}{\operatorname{softmax}}
+\newcommand{\NB}{\operatorname{NegativeBinomial}}
+\newcommand{\Norm}{\mathcal{N}}
+
+\begin{document}
+
+\section*{ELBOs for the six batch-conditioning arms}
+
+\subsection*{Notation and shapes}
+
+Shapes are for the sweep configuration: $G=200$ genes, $d_z=3$, $d_v=2$, $B=5$ batches.
+
+\begin{itemize}\itemsep2pt
+\item $x_i \in \mathbb{Z}_{\geq 0}^{G}$ --- observed counts for cell $i$ (\texttt{adata.X}).
+\item $\tilde{x}_i = \log(1 + x_i) \in \mathbb{R}^{G}$ --- what every encoder actually reads.
+\item $b_i \in \{0,\dots,B-1\}$ --- pandas category code; $e_{b_i} \in \{0,1\}^{B}$ its one-hot.
+\item $z_i \in \mathbb{R}^{d_z}$, $v_i \in \mathbb{R}^{d_v}$ --- the two latents.
+\item $\thetapar \in \mathbb{R}_{>0}^{G}$ --- a \texttt{pyro.param}, one dispersion per gene, shared by all cells.
+\item $L_i = \sum_{g} x_{ig}$ --- library size. $\epsilon = 10^{-5}$.
+\end{itemize}
+
+Training uses \texttt{Trace\_ELBO()}, so every term below is a \emph{sampled} log-density
+ratio evaluated at the guide's reparameterized draws --- not an analytic KL.
+
+\subsection*{The shared skeleton}
+
+All six arms optimise
+\begin{equation}
+\mathcal{L}_i \;=\;
+\underbrace{\log p(x_i \mid z_i, \cdot)}_{\text{scale } 1}
+\;+\;
+\underbrace{\log p(z_i \mid v_i, \cdot) \;-\; \log q(z_i \mid \cdot)}_{\text{scale } 1}
+\;+\;
+\beta \underbrace{\Big[\log p(v_i) \;-\; \log q(v_i \mid \cdot)\Big]}_{\text{scale } \beta}
+\label{eq:skeleton}
+\end{equation}
+where $z_i$ and $v_i$ are drawn \emph{by the guide}; the model's sample sites for $z$ and $v$
+are replayed, not re-drawn. \texttt{poutine.scale(scale=beta)} wraps only the $v$ site, in
+both \texttt{model()} and \texttt{guide()}; the $z$ and $x$ sites sit at scale $1$.
+
+The pieces below are byte-identical across all six arms.
+
+\paragraph{Guide latents.}
+\begin{align}
+(m^{q}_i,\ \tilde{s}^{q}_i) &= \encxz(\,\cdot\,), &
+s^{q}_i &= \sfp(\tilde{s}^{q}_i) + \epsilon, &
+q(z_i\mid\cdot) &= \Norm\!\big(m^{q}_i,\ \mathrm{diag}(s^{q}_i)^2\big) \\
+(n^{q}_i,\ \tilde{r}^{q}_i) &= \text{$v$-encoder}(\,\cdot\,), &
+r^{q}_i &= \sfp(\tilde{r}^{q}_i) + \epsilon, &
+q(v_i\mid\cdot) &= \Norm\!\big(n^{q}_i,\ \mathrm{diag}(r^{q}_i)^2\big)
+\end{align}
+
+\paragraph{Model latents.}
+\begin{equation}
+(m^{p}_i,\ \tilde{s}^{p}_i) = \decvz(v_i), \qquad
+s^{p}_i = \sfp(\tilde{s}^{p}_i), \qquad
+p(v_i) = \Norm(0,\ I_{d_v})
+\end{equation}
+
+\paragraph{Likelihood.} With $\mu_i = \smax\big(\deczx(\cdot)\big) \in \Delta^{G-1}$,
+\begin{equation}
+\ell_i = \log\!\big(L_i\,\mu_i + \epsilon\big) - \log\!\big(\thetapar + \epsilon\big),
+\qquad
+\log p(x_i \mid \cdot) = \sum_{g=1}^{G} \log \NB\!\big(x_{ig} \,\big|\, \thetapar_g + \epsilon,\ \ell_{ig}\big)
+\end{equation}
+parameterised by total count and logits.
+
+\subsection*{Where the six arms differ}
+
+Exactly five slots. Everything outside this table is identical.
+
+\begin{center}\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+arm & $\encxz$ input & guide $z$ mean & model $z$ mean & $v$-encoder input & $\deczx$ input \\
+\midrule
+\texttt{model1-add} & $\tilde{x}_i$ & $m^{q}_i$ & $m^{p}_i + \bshift[b_i]$ & $[z_i, \tilde{x}_i]$ & $z_i$ \\
+\texttt{model2-add} & $\tilde{x}_i$ & $m^{q}_i + \bpost[b_i]$ & $m^{p}_i + \bprior[b_i]$ & $[z_i, \tilde{x}_i]$ & $z_i$ \\
+\texttt{model3-add} & $\tilde{x}_i$ & $m^{q}_i + \bpost[b_i]$ & $m^{p}_i + \bprior[b_i]$ & $\tilde{x}_i$ & $z_i$ \\
+\texttt{model4} & $\tilde{x}_i$ & $m^{q}_i$ & $m^{p}_i$ & $[z_i, \tilde{x}_i]$ & $z_i,\ e_{b_i}$ \\
+\texttt{model5} & $\tilde{x}_i,\ e_{b_i}$ & $m^{q}_i$ & $m^{p}_i$ & $[z_i, \tilde{x}_i]$ & $z_i,\ e_{b_i}$ \\
+\texttt{model6} & $\tilde{x}_i,\ e_{b_i}$ & $m^{q}_i$ & $m^{p}_i$ & $\tilde{x}_i$ & $z_i,\ e_{b_i}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+$[\,\cdot\,,\cdot\,]$ is \texttt{torch.cat} along the last axis. A comma inside
+$\deczx(\cdot)$ or $\encxz(\cdot)$ denotes \texttt{ConditionalDenseNN}'s \texttt{context}
+argument, which is concatenated onto the input at the \emph{first} layer --- not added to the
+output.
+
+\subsection*{model1-add --- Decipher-VZ-Add \hfill\normalfont\small(\texttt{decipher.py} L203--271)}
+\begin{align}
+z_i &\sim \Norm\big(\encxz(\tilde{x}_i),\ \cdot\big), &
+v_i &\sim \Norm\big(\enczxv([z_i,\tilde{x}_i]),\ \cdot\big) \notag \\[4pt]
+\mathcal{L}_i =\;& \log \NB\Big(x_i \,\Big|\, \smax\big(\deczx(z_i)\big),\ \thetapar\Big) \notag\\
+&+ \log \Norm\Big(z_i \,\Big|\, \decvz(v_i) + \bshift[b_i],\ \sfp(\tilde{s}^{p}_i)\Big) \notag\\
+&- \log \Norm\Big(z_i \,\Big|\, \encxz(\tilde{x}_i),\ \sfp(\tilde{s}^{q}_i)+\epsilon\Big) \notag\\
+&+ \beta\Big[\log \Norm(v_i \mid 0, I) - \log \Norm\big(v_i \mid \enczxv([z_i,\tilde{x}_i]),\ \cdot\big)\Big]
+\end{align}
+\texttt{guide()} accepts \texttt{batch\_idx} and deliberately ignores it (L243): this arm's
+guide is $q(z\mid x)$. Note $\bshift$ occurs in \emph{exactly one} term.
+
+\subsection*{model2-add --- Decipher-VZ2-Add \hfill\normalfont\small(L206--265)}
+\begin{align}
+\mathcal{L}_i =\;& \log \NB\Big(x_i \,\Big|\, \smax\big(\deczx(z_i)\big),\ \thetapar\Big) \notag\\
+&+ \log \Norm\Big(z_i \,\Big|\, \decvz(v_i) + \bprior[b_i],\ \cdot\Big) \notag\\
+&- \log \Norm\Big(z_i \,\Big|\, \encxz(\tilde{x}_i) + \bpost[b_i],\ \cdot\Big) \notag\\
+&+ \beta\Big[\log \Norm(v_i \mid 0, I) - \log \Norm\big(v_i \mid \enczxv([z_i,\tilde{x}_i]),\ \cdot\big)\Big]
+\end{align}
+Two distinct tables since fix~2. When they were a single shared object, $\bshift$ cancelled
+exactly out of the $z$ terms on every sample, deleting the gradient that identifies it.
+
+\subsection*{model3-add --- Decipher-MF-Add \hfill\normalfont\small(L209--269)}
+Identical to \texttt{model2-add} except the final line, where $z_i$ never enters:
+\begin{equation}
++\ \beta\Big[\log \Norm(v_i \mid 0, I) - \log \Norm\big(v_i \mid \encxv(\tilde{x}_i),\ \cdot\big)\Big]
+\end{equation}
+
+\subsection*{model4 --- Decipher-ZX \hfill\normalfont\small(L229--306)}
+\begin{align}
+\mathcal{L}_i =\;& \log \NB\Big(x_i \,\Big|\, \smax\big(\deczx(z_i,\ e_{b_i})\big),\ \thetapar\Big) \notag\\
+&+ \log \Norm\Big(z_i \,\Big|\, \decvz(v_i),\ \cdot\Big) \notag\\
+&- \log \Norm\Big(z_i \,\Big|\, \encxz(\tilde{x}_i),\ \cdot\Big) \notag\\
+&+ \beta\Big[\log \Norm(v_i \mid 0, I) - \log \Norm\big(v_i \mid \enczxv([z_i,\tilde{x}_i]),\ \cdot\big)\Big]
+\end{align}
+$b_i$ appears \emph{once}, inside the likelihood. Both $z$ terms are batch-blind.
+
+\subsection*{model5 --- Decipher-ZX2 \hfill\normalfont\small(L221--293)}
+\begin{align}
+\mathcal{L}_i =\;& \log \NB\Big(x_i \,\Big|\, \smax\big(\deczx(z_i,\ e_{b_i})\big),\ \thetapar\Big) \notag\\
+&+ \log \Norm\Big(z_i \,\Big|\, \decvz(v_i),\ \cdot\Big) \notag\\
+&- \log \Norm\Big(z_i \,\Big|\, \encxz(\tilde{x}_i,\ e_{b_i}),\ \cdot\Big) \notag\\
+&+ \beta\Big[\log \Norm(v_i \mid 0, I) - \log \Norm\big(v_i \mid \enczxv([z_i,\tilde{x}_i]),\ \cdot\big)\Big]
+\end{align}
+$e_{b_i}$ enters $\encxz$ as a concatenated \emph{input}, so it reaches both output heads
+($m^{q}_i$ and $\tilde{s}^{q}_i$ come from one final \texttt{Linear}, split afterwards) and its
+effect is a function of $\tilde{x}_i$ rather than a constant per batch.
+
+\subsection*{model6 --- Decipher-MF2 \hfill\normalfont\small(L227--300)}
+Identical to \texttt{model5} except the final line:
+\begin{equation}
++\ \beta\Big[\log \Norm(v_i \mid 0, I) - \log \Norm\big(v_i \mid \encxv(\tilde{x}_i),\ \cdot\big)\Big]
+\end{equation}
+
+\subsection*{Two things visible directly in these expressions}
+
+\paragraph{\texttt{model1-add} and \texttt{model2-add} are the same model.}
+Substituting
+$\encxz^{(2)}(\tilde{x}_i) = \encxz^{(1)}(\tilde{x}_i) - \bpost[b_i]$
+makes every line coincide: the sampled $z_i$ is the same, the $z$-term difference is the same,
+and $\log q(z_i)$ is the same. Both encoders are unconstrained networks of $\tilde{x}_i$ alone
+with identical capacity, so the two induce the same joint distribution over $(v, z, x)$.
+
+\paragraph{Whether the reconstruction gradient can reach the batch parameter.}
+In \texttt{model1-add}--\texttt{model3-add}, $\bshift$ (resp.\ $\bprior$, $\bpost$) occurs only
+in the $z$ terms. The $z_i$ that reaches $\deczx$ is the guide's draw, which contains no
+$\bshift$, so
+\begin{equation}
+\frac{\partial}{\partial\, \bshift}\ \log p(x_i \mid z_i) \;=\; 0
+\quad\text{exactly, on every sample.}
+\end{equation}
+In \texttt{model4}--\texttt{model6}, the batch parameters are the first $B$ columns of
+$\deczx$'s weight, i.e.\ they sit \emph{inside} $\log p(x_i \mid \cdot)$ --- the largest term
+in the objective. That single structural difference is what the empirical results turn on.
+
+\end{document}

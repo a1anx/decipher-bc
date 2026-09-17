@@ -1,0 +1,100 @@
+% Compact one-line ELBOs for the six Decipher-BC batch-conditioning arms.
+% Notation matches Alan's existing ELBO_1..ELBO_3 slides.
+% Transcribed from the code 2026-08-25; see elbo_all_arms.tex for the fully
+% explicit version with softplus, epsilon and the NB parameterisation.
+\documentclass[12pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+
+\newcommand{\ELBO}[1]{\mathrm{ELBO}_{#1}}
+
+\begin{document}
+
+\textbf{\large ELBOs --- six batch-conditioning arms}\\[2pt]
+{\small $i$ indexes cells, $g$ indexes genes, $b_i$ is the batch label,
+$\theta_g$ the per-gene negative-binomial dispersion, $\beta$ the v-term weight.
+Expectations are over the guide's reparameterised draws.}\\[10pt]
+
+\textbf{model1-add \;---\; Decipher-VZ-Add} \hfill {\small $q(z\mid x)\,q(v\mid z,x)$; batch on the $z$ prior}
+\begin{equation*}
+\ELBO{1} = \sum_i \mathbb{E}_{q(v_i,z_i)}\!\left[\;
+\sum_g \log p(x_{i,g}\mid z_i,\theta_g)
+\;+\; \log\frac{p(z_i\mid v_i,b_i)}{q(z_i\mid x_i)}
+\;+\; \beta\log\frac{p(v_i)}{q(v_i\mid z_i,x_i)}
+\;\right]
+\end{equation*}
+
+\vspace{4pt}
+\textbf{model2-add \;---\; Decipher-VZ2-Add} \hfill {\small $q(z\mid x,b)\,q(v\mid z,x)$; batch on both $z$ edges}
+\begin{equation*}
+\ELBO{2} = \sum_i \mathbb{E}_{q(v_i,z_i)}\!\left[\;
+\sum_g \log p(x_{i,g}\mid z_i,\theta_g)
+\;+\; \log\frac{p(z_i\mid v_i,b_i)}{q(z_i\mid x_i,b_i)}
+\;+\; \beta\log\frac{p(v_i)}{q(v_i\mid z_i,x_i)}
+\;\right]
+\end{equation*}
+
+\vspace{4pt}
+\textbf{model3-add \;---\; Decipher-MF-Add} \hfill {\small mean-field $v$: $q(v\mid x)$}
+\begin{equation*}
+\ELBO{3} = \sum_i \mathbb{E}_{q(v_i,z_i)}\!\left[\;
+\sum_g \log p(x_{i,g}\mid z_i,\theta_g)
+\;+\; \log\frac{p(z_i\mid v_i,b_i)}{q(z_i\mid x_i,b_i)}
+\;+\; \beta\log\frac{p(v_i)}{q(v_i\mid x_i)}
+\;\right]
+\end{equation*}
+
+\vspace{14pt}
+\hrule
+\vspace{10pt}
+{\small The three new arms move $b_i$ out of the $z$ terms and into the likelihood.
+Every $b_i$ that moved is shown in \textcolor{red}{red}.}\\[8pt]
+
+\textbf{model4 \;---\; Decipher-ZX} \hfill {\small $q(z\mid x)\,q(v\mid z,x)$; batch on the decoder}
+\begin{equation*}
+\ELBO{4} = \sum_i \mathbb{E}_{q(v_i,z_i)}\!\left[\;
+\sum_g \log p(x_{i,g}\mid z_i,\textcolor{red}{b_i},\theta_g)
+\;+\; \log\frac{p(z_i\mid v_i)}{q(z_i\mid x_i)}
+\;+\; \beta\log\frac{p(v_i)}{q(v_i\mid z_i,x_i)}
+\;\right]
+\end{equation*}
+
+\vspace{4pt}
+\textbf{model5 \;---\; Decipher-ZX2} \hfill {\small $q(z\mid x,b)\,q(v\mid z,x)$; batch on the decoder}
+\begin{equation*}
+\ELBO{5} = \sum_i \mathbb{E}_{q(v_i,z_i)}\!\left[\;
+\sum_g \log p(x_{i,g}\mid z_i,\textcolor{red}{b_i},\theta_g)
+\;+\; \log\frac{p(z_i\mid v_i)}{q(z_i\mid x_i,b_i)}
+\;+\; \beta\log\frac{p(v_i)}{q(v_i\mid z_i,x_i)}
+\;\right]
+\end{equation*}
+
+\vspace{4pt}
+\textbf{model6 \;---\; Decipher-MF2} \hfill {\small mean-field $v$; batch on the decoder}
+\begin{equation*}
+\ELBO{6} = \sum_i \mathbb{E}_{q(v_i,z_i)}\!\left[\;
+\sum_g \log p(x_{i,g}\mid z_i,\textcolor{red}{b_i},\theta_g)
+\;+\; \log\frac{p(z_i\mid v_i)}{q(z_i\mid x_i,b_i)}
+\;+\; \beta\log\frac{p(v_i)}{q(v_i\mid x_i)}
+\;\right]
+\end{equation*}
+
+\vspace{16pt}
+\hrule
+\vspace{8pt}
+{\small
+\textbf{Reading the table.} Exactly three slots vary: whether $b_i$ appears in the
+likelihood $p(x_{i,g}\mid\cdot)$, in the $z$ prior $p(z_i\mid\cdot)$, and in the
+$z$ guide $q(z_i\mid\cdot)$. A fourth slot---whether the $v$ guide reads $z_i$---separates
+the mean-field arms (3 and 6) from the rest.\\[6pt]
+\textbf{Why arms 4--6 behave differently.} In arms 1--3 the batch parameter appears
+\emph{only} inside $p(z_i\mid v_i,b_i)$. The $z_i$ reaching the likelihood is the guide's
+draw, which contains no batch parameter, so
+$\partial \log p(x_{i,g}\mid z_i,\theta_g)\,/\,\partial\,\texttt{batch\_shift} = 0$
+exactly, on every sample: the reconstruction term cannot see it. In arms 4--6 the batch
+parameters sit inside $p(x_{i,g}\mid z_i,b_i,\theta_g)$---the largest term in the objective.}
+
+\end{document}
