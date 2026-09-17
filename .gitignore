@@ -3,6 +3,7 @@
 !Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0803/trained/*.h5ad
 !Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0804/trained/*.h5ad
 !Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0806/trained/*.h5ad
+!Data/Simulated Data/Simulated Adata/wandb_sigma_sweep/*/trained/*.h5ad
 
 # Trained model artifacts
 _decipher_models/
@@ -20,3 +21,13 @@ __pycache__/
 .claude/
 CLAUDE.md
 batch_shift_review_handoff.md
+# wandb
+wandb/
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Other files
+*.html
+*.md
