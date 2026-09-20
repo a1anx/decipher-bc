@@ -106,3 +106,83 @@ def make_data_loader_from_adata(adata, batch_size=64, context_discrete_keys=None
         shuffle=True,
         **kwargs,
     )
+
+
+def get_batch_idx(adata, config):
+    """Integer batch codes per cell, matching what the training dataloader produced.
+
+    The obs -> codes conversion otherwise exists only inside make_data_loader_from_adata, so
+    every post-training caller silently falls back to "all cells are batch 0". Keeping the
+    conversion in one place is what stops the two paths from drifting apart again.
+
+    Returns None when the model was trained without batches, so callers can pass it straight
+    through to the batch-blind path.
+    """
+    if config.n_batches == 0 or config.batch_key is None:
+        return None
+    if config.batch_key not in adata.obs:
+        raise KeyError(
+            f"Model was trained with batch_key={config.batch_key!r}, but that column is "
+            f"not present in adata.obs. Available: {list(adata.obs.columns)}"
+        )
+
+    # Same conversion as make_data_loader_from_adata above.
+    codes = np.asarray(adata.obs[config.batch_key].astype("category").cat.codes.values)
+
+    # Fail loudly rather than silently mis-assigning batches. A -1 means the column had values
+    # outside its own categories (NaN); a code >= n_batches means the categories were ordered
+    # differently than at training time.
+    if codes.min() < 0:
+        raise ValueError(
+            f"adata.obs[{config.batch_key!r}] has unassigned (NaN) categories, which "
+            f"produce code -1. Every cell needs a batch label."
+        )
+    if codes.max() >= config.n_batches:
+        raise ValueError(
+            f"adata.obs[{config.batch_key!r}] produced batch code {codes.max()}, but the "
+            f"model was trained with n_batches={config.n_batches}. The category ordering "
+            f"does not match training."
+        )
+    return torch.tensor(codes).long()
+
+
+def get_decoder_z(adata, key="decipher_z_raw"):
+    """Return a stored z coordinate in the frame `decoder_z_to_x` was trained on.
+
+    USE THIS INSTEAD OF READING adata.obsm DIRECTLY whenever you are about to feed a stored z
+    into decoder_z_to_x.
+
+    Why this function has to exist: decipher_rotate_space applies a per-axis sign flip to
+    decipher_z and decipher_z_raw *in place*, and stores the pre-flip arrays as
+    <key>_not_rotated. The flip is cosmetic -- it is a reflection, so it leaves every
+    distance-based metric (silhouette, iLISI, graph connectivity, the Leiden neighbour graph)
+    and every rank correlation unchanged, which is why nothing downstream ever noticed. But
+    decoder_z_to_x has no reflection invariance: decoder_z_to_x(z * sign) != decoder_z_to_x(z).
+    Decoding the post-flip array evaluates the decoder on a coordinate it never saw in training.
+
+    It fails silently and intermittently, which is the dangerous combination: the sign
+    correction is data-dependent, so some runs flip and some do not, and a flipped run still
+    returns a finite, plausible-looking number.
+
+    A model trained with batch_conditioning="none" exports no decipher_z_raw; its decipher_z IS
+    the raw coordinate, so fall back to it.
+
+    Parameters
+    ----------
+    adata : sc.AnnData
+        Must carry the decipher embeddings in .obsm.
+    key : str, default "decipher_z_raw"
+        Which coordinate to fetch. Use "decipher_z_raw" for anything that feeds the decoder;
+        "decipher_z" is the batch-corrected coordinate, for metrics and plots.
+
+    Returns
+    -------
+    np.ndarray of shape (n_cells, dim_z)
+    """
+    for candidate in (f"{key}_not_rotated", key, "decipher_z_not_rotated", "decipher_z"):
+        if candidate in adata.obsm:
+            return np.asarray(adata.obsm[candidate])
+    raise KeyError(
+        f"No usable z coordinate for {key!r}. adata.obsm has: {list(adata.obsm)}. "
+        f"Run decipher_train (or decipher_rotate_space) first."
+    )

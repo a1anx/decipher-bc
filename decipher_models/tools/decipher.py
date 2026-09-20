@@ -17,6 +17,7 @@ from decipher_models.tools._decipher import Decipher, DecipherConfig
 from decipher_models.tools._decipher.data import (
     decipher_load_model,
     decipher_save_model,
+    get_batch_idx,
     make_data_loader_from_adata,
     get_dense_X,
 )
@@ -407,6 +408,11 @@ def decipher_rotate_space(
         z_sign_correction = np.sign(z_v_corr[:dim_z, dim_z:].sum(axis=1))
         adata.obsm["decipher_z_not_rotated"] = adata.obsm["decipher_z"].copy()
         adata.obsm["decipher_z"] = adata.obsm["decipher_z"] * z_sign_correction
+        # decipher_z_raw has to take the SAME sign flip, otherwise the two coordinates end up
+        # in different frames and `decipher_z_raw - decipher_z` stops being the batch offset.
+        if "decipher_z_raw" in adata.obsm:
+            adata.obsm["decipher_z_raw_not_rotated"] = adata.obsm["decipher_z_raw"].copy()
+            adata.obsm["decipher_z_raw"] = adata.obsm["decipher_z_raw"] * z_sign_correction
 
 
 def decipher_gene_imputation(adata):
@@ -423,7 +429,9 @@ def decipher_gene_imputation(adata):
         The imputed gene expression.
     """
     decipher = decipher_load_model(adata)
-    imputed = decipher.impute_gene_expression_numpy(adata.X.toarray())
+    # reconstruct each cell in its own batch, not batch 0
+    batch_idx = get_batch_idx(adata, decipher.config)
+    imputed = decipher.impute_gene_expression_numpy(adata.X.toarray(), batch_idx=batch_idx)
     adata.layers["decipher_imputed"] = imputed
     logging.info("Added `.layers['imputed']`: the Decipher imputed data.")
 
@@ -465,11 +473,22 @@ def _decipher_to_adata(decipher, adata):
     `adata.obsm['decipher_v']`: ndarray
         The decipher v space.
     `adata.obsm['decipher_z']`: ndarray
-        The decipher z space.
+        The decipher z space, batch-corrected.
+    `adata.obsm['decipher_z_raw']`: ndarray
+        The decipher z space with the batch effect still in it.
     """
     decipher.eval()
-    latent_v, latent_z = decipher.compute_v_z_numpy(get_dense_X(adata))
+    # Pass the real batch codes. Without them compute_v_z_numpy assigns every cell to batch 0,
+    # so variants with a conditioned guide export a different quantity than variants without,
+    # under the same column name. Both coordinates are written, defined identically for every
+    # variant -- see Decipher.compute_v_z_numpy.
+    batch_idx = get_batch_idx(adata, decipher.config)
+    latent_v, latent_z, latent_z_raw = decipher.compute_v_z_numpy(
+        get_dense_X(adata), batch_idx=batch_idx
+    )
     adata.obsm["decipher_v"] = latent_v
     adata.obsm["decipher_z"] = latent_z
+    adata.obsm["decipher_z_raw"] = latent_z_raw
     logging.info("Added `.obsm['decipher_v']`: the Decipher v space.")
-    logging.info("Added `.obsm['decipher_z']`: the Decipher z space.")
+    logging.info("Added `.obsm['decipher_z']`: the Decipher z space (batch-corrected).")
+    logging.info("Added `.obsm['decipher_z_raw']`: the Decipher z space (batch effect included).")

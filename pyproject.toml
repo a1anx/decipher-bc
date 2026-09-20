@@ -20,6 +20,32 @@ wandb = "^0.30.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
 
+[tool.pytest.ini_options]
+# Test files in this repo carry an MMDD prefix (see CLAUDE.md), which does NOT match pytest's
+# default `test_*.py` discovery pattern -- `pytest tests/` silently collected 0 tests from
+# `0918_test_bifurcation_pipeline.py` while the file passed fine when named explicitly. A test
+# file that is never collected is worse than no test file, because it reads as coverage. Widening
+# the pattern keeps the naming convention and makes the files discoverable.
+python_files = ["test_*.py", "[0-9][0-9][0-9][0-9]_test_*.py"]
+
+# The ten legacy variant packages are sibling poetry projects, deliberately not all installed at
+# once -- that duplication is what decipher_models exists to remove. test_variant_equivalence.py
+# still has to import them to check the unified model reproduces each one, so put each package's
+# parent directory on sys.path. Declared here rather than mutated inside the test, so a renamed
+# directory is a visible wrong line in config instead of a silently skipped test.
+pythonpath = [
+  "native-decipher",
+  "model1",
+  "model2",
+  "model3",
+  "model1-add",
+  "model2-add",
+  "model3-add",
+  "model4",
+  "model5",
+  "model6",
+]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

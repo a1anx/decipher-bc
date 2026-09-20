@@ -13,9 +13,9 @@ from decipher_models.tools.decipher import (
     decipher_gene_imputation,
     decipher_and_gene_covariance,
 )
-from ._decipher.data import decipher_load_model
+from ._decipher.data import decipher_load_model, get_batch_idx, get_decoder_z
 from ._decipher.decipher import DecipherConfig
-from decipher_models.tools.diagnostics import reconstruction_r2_log1p
+from decipher_models.tools.diagnostics import batch_effect_recovery, reconstruction_r2_log1p
 
 __all__ = [
     "cell_clusters",
@@ -30,7 +30,10 @@ __all__ = [
     "decipher_gene_imputation",
     "decipher_and_gene_covariance",
     "decipher_load_model",
+    "get_batch_idx",
+    "get_decoder_z",
     "DecipherConfig",
     "TConfig",
+    "batch_effect_recovery",
     "reconstruction_r2_log1p",
 ]
