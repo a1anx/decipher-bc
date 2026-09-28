@@ -1,11 +1,10 @@
 # Data files
 *.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0803/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0804/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0806/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/wandb_sigma_sweep/*/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0803/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0804/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0806/trained/*.h5ad
 
-Real Data Analysis/Data 1
+Real Data/Data 1
 
 # Trained model artifacts
 _decipher_models/
@@ -36,3 +35,6 @@ CLAUDE.md
 
 # Sweep run logs (can exceed GitHub's 100MB limit)
 *.log
+
+# Test output (ephemeral pytest junit/log artifacts)
+test-results/
