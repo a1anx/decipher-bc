@@ -1,7 +1,11 @@
 [tool.poetry]
 name = "decipher_models"
 version = "0.1.0"
-packages = [{include = "decipher_models", from = "."}, {include = "decipher_models2", from = "."}]
+packages = [
+  {include = "decipher_models", from = "."},
+  {include = "decipher_models2", from = "."},
+  {include = "decipher_m5", from = "."},
+]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
