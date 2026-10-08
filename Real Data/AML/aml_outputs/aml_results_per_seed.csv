@@ -1,0 +1,40 @@
+fit,arm,space,seed,sil_batch,score_ordering,score_divergence
+C1,(input data),X (log-norm PCA),-1,0.0005,,
+C1,native,decipher_v,0,0.0003,0.7301,-1.6549
+C1,native,decipher_z,0,0.0004,0.5797,-1.0894
+C1,zx2,decipher_v,0,0.0004,0.6228,-1.3596
+C1,zx2,decipher_z,0,0.0002,0.5391,-0.8745
+C1,native,decipher_v,1,0.0003,0.6867,-0.4149
+C1,native,decipher_z,1,0.0004,0.6173,-1.0149
+C1,zx2,decipher_v,1,1e-04,0.6625,-1.9043
+C1,zx2,decipher_z,1,0.0003,0.5907,-1.1887
+C1,native,decipher_v,2,-1e-04,0.4056,-0.8234
+C1,native,decipher_z,2,0.0002,0.5808,-1.1828
+C1,zx2,decipher_v,2,0.0003,0.7668,-1.1465
+C1,zx2,decipher_z,2,0.0003,0.5875,-1.1103
+C2,(input data),X (log-norm PCA),-1,0.0007,,
+C2,native,decipher_v,0,0.0007,0.7238,0.0336
+C2,native,decipher_z,0,0.0003,0.5994,-0.1553
+C2,zx2,decipher_v,0,0.0008,0.8017,-0.0094
+C2,zx2,decipher_z,0,0.0005,0.5983,0.1228
+C2,native,decipher_v,1,0.001,0.8073,-0.1839
+C2,native,decipher_z,1,0.0006,0.6031,-0.2239
+C2,zx2,decipher_v,1,0.0009,0.8311,0.1911
+C2,zx2,decipher_z,1,0.0004,0.5858,-0.0952
+C2,native,decipher_v,2,0.0003,0.5708,0.0201
+C2,native,decipher_z,2,0.0005,0.5607,-0.3317
+C2,zx2,decipher_v,2,0.0009,0.5877,-0.208
+C2,zx2,decipher_z,2,0.0004,0.5723,0.0108
+E,(input data),X (log-norm PCA),-1,0.0877,,
+E,native,decipher_v,0,-0.0804,0.6015,-1.1719
+E,native,decipher_z,0,0.0998,0.5688,-0.6095
+E,zx2,decipher_v,0,-0.1467,0.5524,-1.296
+E,zx2,decipher_z,0,-0.0612,0.5302,-0.6609
+E,native,decipher_v,1,-0.0453,0.7089,-2.2278
+E,native,decipher_z,1,0.1163,0.5103,-0.8704
+E,zx2,decipher_v,1,-0.1423,0.4912,-1.4879
+E,zx2,decipher_z,1,-0.03,0.5313,-0.6276
+E,native,decipher_v,2,-0.0964,0.6429,-0.0888
+E,native,decipher_z,2,0.1058,0.5534,-0.8463
+E,zx2,decipher_v,2,-0.072,0.6352,-1.1456
+E,zx2,decipher_z,2,-0.0279,0.5468,-0.8012

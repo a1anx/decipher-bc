@@ -1,0 +1,15 @@
+,,,sil_batch,sil_batch,score_ordering,score_ordering,score_divergence,score_divergence
+,,,mean,std,mean,std,mean,std
+fit,arm,space,,,,,,
+C1,native,decipher_v,0.0002,0.0002,0.6075,0.1762,-0.9644,0.6319
+C1,native,decipher_z,0.0003,1e-04,0.5926,0.0214,-1.0957,0.0841
+C1,zx2,decipher_v,0.0003,0.0002,0.684,0.0744,-1.4701,0.3908
+C1,zx2,decipher_z,0.0003,1e-04,0.5724,0.0289,-1.0578,0.1635
+C2,native,decipher_v,0.0007,0.0004,0.7006,0.1199,-0.0434,0.1219
+C2,native,decipher_z,0.0005,0.0002,0.5877,0.0235,-0.237,0.0889
+C2,zx2,decipher_v,0.0009,1e-04,0.7402,0.1329,-0.0088,0.1996
+C2,zx2,decipher_z,0.0004,1e-04,0.5855,0.013,0.0128,0.109
+E,native,decipher_v,-0.074,0.0261,0.6511,0.0542,-1.1628,1.0695
+E,native,decipher_z,0.1073,0.0084,0.5442,0.0303,-0.7754,0.1442
+E,zx2,decipher_v,-0.1203,0.0419,0.5596,0.0723,-1.3098,0.1716
+E,zx2,decipher_z,-0.0397,0.0186,0.5361,0.0093,-0.6966,0.0921
