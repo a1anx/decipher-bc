@@ -85,3 +85,7 @@ def test_stratified_subsample_is_deterministic_and_sorted():
 
 def test_stratified_subsample_returns_everything_when_max_cells_exceeds_n():
     assert np.array_equal(driver.stratified_subsample(np.array(["a"] * 5), 50), np.arange(5))
+
+
+def test_driver_trains_through_decipher_m5():
+    assert driver.PACKAGE == "decipher_m5"

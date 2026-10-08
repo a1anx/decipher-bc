@@ -1,7 +1,7 @@
 """Stage 3/4 training driver for the BMMC study: native vs batch-conditioned Decipher.
 
 Trains {native, BC-donor, BC-site, BC-sample} x decipherseeds x HVG set on the shared h5ad
-(`1008_bmmc/bmmc_shared.h5ad`, built by 1008_bmmc_build_shared.py) through `decipher_models2`.
+(`1008_bmmc/bmmc_shared.h5ad`, built by 1008_bmmc_build_shared.py) through `decipher_m5`.
 BC = the `model5` preset (batch concatenated into the decoder x-side); native = `native` preset.
 One dataset, so the only seed is the decipherseed (repeat training seed).
 
@@ -40,7 +40,7 @@ OUT = os.path.join(_HERE, "1008_bmmc")
 SHARED_H5AD = os.path.join(OUT, "bmmc_shared.h5ad")
 SHARED_SHA = os.path.join(OUT, "bmmc_shared.sha256")
 
-PACKAGE = "decipher_models2"
+PACKAGE = "decipher_m5"
 WANDB_ENTITY = "jpark-columbia"
 WANDB_PROJECT = "decipher-bc-bmmc"
 WANDB_JOB_TYPE = "bmmc_run"
@@ -209,7 +209,7 @@ def _use_shared_split(adata) -> None:
     import pandas as pd
     import scipy.sparse as sp
 
-    mod = importlib.import_module("decipher_models2.tools.decipher")
+    mod = importlib.import_module("decipher_m5.tools.decipher")
 
     def _from_obs_split(adata_, val_frac, seed):
         split = np.where(adata_.obs["split"].astype(str) == "val", "validation", "train")
@@ -282,8 +282,8 @@ def _train(job: dict, run) -> dict:
 
     dc = importlib.import_module(PACKAGE)
     DecipherConfig = importlib.import_module(f"{PACKAGE}.tools._decipher").DecipherConfig
-    from decipher_models2.presets import PRESETS
-    from decipher_models2.utils import DECIPHER_GLOBALS
+    from decipher_m5.presets import PRESETS
+    from decipher_m5.utils import DECIPHER_GLOBALS
 
     DECIPHER_GLOBALS["save_folder"] = os.path.join(
         _REPO_ROOT, "_decipher_models", "bmmc_1008", job["tag"], job["run_id"]
