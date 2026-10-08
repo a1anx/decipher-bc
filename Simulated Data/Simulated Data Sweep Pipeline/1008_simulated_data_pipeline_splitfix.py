@@ -41,6 +41,21 @@ def _build_model(model: str):
     return dc, DecipherConfig, PRESETS[model]
 
 
+_ARM_FOLDER = {("native", "genes"): "native_genes", ("native", "z"): "native_z"}
+
+
+def _fig_path(figs_dir, kind, model, batch_mode, branching_t, sigma, seed, decipher_seed):
+    """Same relative path as the hand-sorted 0918/figs/ tree, so runs pair up side by side."""
+    arm = _ARM_FOLDER.get((model, batch_mode), model)
+    bif = "bif" if branching_t is not None else "nobif"
+    s = f"{sigma:g}" if kind == "vspace" else f"{sigma}"  # 0918 vspace was drawn post hoc with :g
+    data_tag = _data_tag(branching_t, batch_mode)
+    name = f"{kind}_sigma{s}_seed{seed}_{model}_{data_tag}_decipherseed_{decipher_seed}.png"
+    d = os.path.join(figs_dir, arm, bif, f"sigma{sigma}", kind)
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, name)
+
+
 def _git_state() -> tuple:
     """(HEAD sha, dirty flag) of the repo this file lives in; ("unknown", False) outside git."""
     here = os.path.dirname(os.path.abspath(__file__))
@@ -80,6 +95,7 @@ def train_and_compute_rho_r2_bifurcation(
     branch_scale: float = 1.0,
     wandb_run=None,
     run_date: str = None,
+    arm: str = None,
 ):
     """Generate bifurcating data, train one variant, and score it.
 
@@ -97,6 +113,9 @@ def train_and_compute_rho_r2_bifurcation(
     run_date : str or None
         `%m%d` output dir. None = today at call time; the sweep driver passes one value for the
         whole run so a sweep crossing midnight doesn't split across two dirs.
+    arm : str or None
+        Display name used in the v-space figure title (e.g. "Set3 zx2"), as the 0918 post-sweep
+        figures did. None = the model name.
 
     Returns
     -------
@@ -178,10 +197,15 @@ def train_and_compute_rho_r2_bifurcation(
     figs_dir = os.path.join(out_root, "figs")
     os.makedirs(figs_dir, exist_ok=True)
     fig.savefig(
-        os.path.join(
+        _fig_path(
             figs_dir,
-            f"reconstruction_sigma{shift_sigma}_seed{seed}_{model_tag}"
-            f"_{_data_tag(branching_t, batch_mode)}_decipherseed_{decipher_seed}.png",
+            "reconstruction",
+            model_tag,
+            batch_mode,
+            branching_t,
+            shift_sigma,
+            seed,
+            decipher_seed,
         ),
         dpi=120,
         bbox_inches="tight",
@@ -210,21 +234,26 @@ def train_and_compute_rho_r2_bifurcation(
     t_trajectories = time.perf_counter()
 
     # v-space figure (ported from wandb_sigma_sweep.py; previously made post-hoc by
-    # 0918_postsweep_vspace_figures.py). Same filename scheme as the reconstruction figure.
+    # 0918_postsweep_vspace_figures.py). Same sorted layout and title as that script.
     fig_v = dc.pl.decipher(
         adata, color=["batch", "latent_t", "decipher_time"], basis="decipher_v", ncols=3
     )
     fig_v.suptitle(
-        f"{model_tag} | {'bif' if branching_t is not None else 'nobif'} | sigma={shift_sigma} "
+        f"{arm or model_tag} | {'bif' if branching_t is not None else 'nobif'} | sigma={shift_sigma:g} "
         f"| seed={seed} | decipher seed={decipher_seed}",
         y=1.05,
         fontsize=11,
     )
     fig_v.savefig(
-        os.path.join(
+        _fig_path(
             figs_dir,
-            f"vspace_sigma{shift_sigma}_seed{seed}_{model_tag}"
-            f"_{_data_tag(branching_t, batch_mode)}_decipherseed_{decipher_seed}.png",
+            "vspace",
+            model_tag,
+            batch_mode,
+            branching_t,
+            shift_sigma,
+            seed,
+            decipher_seed,
         ),
         dpi=120,
         bbox_inches="tight",

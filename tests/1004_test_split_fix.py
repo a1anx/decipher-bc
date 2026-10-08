@@ -57,7 +57,7 @@ def test_splitfix_function_is_the_0918_one_plus_run_date():
 
     old = inspect.signature(bif.train_and_compute_rho_r2_bifurcation).parameters
     new = inspect.signature(splitfix.train_and_compute_rho_r2_bifurcation).parameters
-    assert set(new) - set(old) == {"run_date"}
+    assert set(new) - set(old) == {"run_date", "arm"}
     assert set(old) <= set(new)
 
 

@@ -286,6 +286,7 @@ def run_one(job):
             notebook_tag=job["notebook_tag"],
             wandb_run=run,
             run_date=job["run_date"],
+            arm=job["arm"],
             **SIM_KWARGS,
         )
         record.update(
