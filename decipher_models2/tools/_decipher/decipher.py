@@ -421,6 +421,7 @@ class Decipher(nn.Module):
             acc = zb if acc is None else acc + zb
         return acc / n_batches
 
+    @torch.no_grad()
     def compute_v_z_numpy(self, x: np.array, batch_idx=None):
         """Compute decipher_v, decipher_z and decipher_z_raw for the given counts.
 
@@ -494,6 +495,7 @@ class Decipher(nn.Module):
             v_loc, _ = self.encoder_zx_to_v(zx)
         return v_loc.detach().numpy(), z.detach().numpy(), z_raw.detach().numpy()
 
+    @torch.no_grad()
     def impute_gene_expression_numpy(self, x, batch_idx=None):
         """Reconstruct counts from the guide's z.
 

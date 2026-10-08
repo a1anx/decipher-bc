@@ -150,6 +150,12 @@ def _init_worker():
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)  # separate pool from set_num_threads; not covered by it
 
+    # Numerics-neutral speed-up (~20% per epoch): skip Pyro's per-step argument validation.
+    # Sweep workers only; tests and notebooks keep validation on.
+    import pyro
+
+    pyro.enable_validation(False)
+
     from decipher_models2.utils import DECIPHER_GLOBALS
 
     DECIPHER_GLOBALS["save_folder"] = os.path.join(
@@ -292,11 +298,17 @@ def run_one(job):
             trained_h5ad=trained_path,
             n_train=_adata.uns["n_train"],
             n_val=_adata.uns["n_val"],
+            n_epochs=_adata.uns["n_epochs"],
+            git_sha=_adata.uns["git_sha"],
+            git_dirty=_adata.uns["git_dirty"],
+            **{f"seconds_{k}": round(v, 1) for k, v in _adata.uns["stage_seconds"].items()},
             package=PACKAGE,
             error=None,
         )
         if run is not None:  # known only after training
-            run.config.update({"n_train": record["n_train"], "n_val": record["n_val"]})
+            run.config.update(
+                {k: record[k] for k in ("n_train", "n_val", "n_epochs", "git_sha", "git_dirty")}
+            )
     except Exception as e:  # one bad cell must not take down 167 others
         record.update(
             rho=np.nan,
@@ -308,6 +320,9 @@ def run_one(job):
             trained_h5ad=None,
             n_train=np.nan,
             n_val=np.nan,
+            n_epochs=np.nan,
+            git_sha=None,
+            git_dirty=None,
             package=PACKAGE,
             error=f"{type(e).__name__}: {e}",
         )

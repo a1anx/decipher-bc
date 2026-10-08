@@ -15,6 +15,8 @@ See Claude Files/plans/1007_splitfix-relay/.
 
 import importlib
 import os
+import subprocess
+import time
 from datetime import datetime
 
 import numpy as np
@@ -37,6 +39,26 @@ def _build_model(model: str):
     dc = importlib.import_module("decipher_models2")
     DecipherConfig = importlib.import_module("decipher_models2.tools._decipher").DecipherConfig
     return dc, DecipherConfig, PRESETS[model]
+
+
+def _git_state() -> tuple:
+    """(HEAD sha, dirty flag) of the repo this file lives in; ("unknown", False) outside git."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=here, text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        dirty = bool(
+            subprocess.check_output(
+                ["git", "status", "--porcelain", "--untracked-files=no"],
+                cwd=here,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown", False
+    return sha, dirty
 
 
 def train_and_compute_rho_r2_bifurcation(
@@ -80,6 +102,7 @@ def train_and_compute_rho_r2_bifurcation(
     -------
     (rho, rho_plus, rho_minus, branch_asw, trained_h5ad_path, r2_overall, r2_per_gene_median, adata)
     """
+    t_start = time.perf_counter()
     adata = shift_magnitudes_multivariate_bifurcation(
         n_batches=n_batches,
         shift_sigma=shift_sigma,
@@ -97,6 +120,7 @@ def train_and_compute_rho_r2_bifurcation(
     if dim_z is None:
         dim_z = n_z_dims
 
+    t_simulated = time.perf_counter()
     dc, DecipherConfig, preset = _build_model(model)
     model_tag = model
 
@@ -109,6 +133,7 @@ def train_and_compute_rho_r2_bifurcation(
         plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"},
     )
 
+    t_trained = time.perf_counter()
     if wandb_run is not None:
         # decipher_train fills in dim_genes/n_cells/n_batches/batch_key via
         # config.initialize_from_adata, so the config is only complete after training.
@@ -166,6 +191,7 @@ def train_and_compute_rho_r2_bifurcation(
 
         wandb_run.log({"reconstruction_diagnostic": wandb.Image(fig)})
     plt.close(fig)
+    t_recon = time.perf_counter()
 
     # Trajectories -- one per arm, sharing the trunk clusters.
     #
@@ -181,6 +207,7 @@ def train_and_compute_rho_r2_bifurcation(
     )
     dc.tl.decipher_rotate_space(adata)
     dc.tl.decipher_time(adata)
+    t_trajectories = time.perf_counter()
 
     # v-space figure (ported from wandb_sigma_sweep.py; previously made post-hoc by
     # 0918_postsweep_vspace_figures.py). Same filename scheme as the reconstruction figure.
@@ -207,6 +234,7 @@ def train_and_compute_rho_r2_bifurcation(
 
         wandb_run.log({"v_space": wandb.Image(fig_v)})
     plt.close(fig_v)
+    t_vspace = time.perf_counter()
 
     # Metrics
     m = adata.obs["decipher_time"].notna()
@@ -228,6 +256,18 @@ def train_and_compute_rho_r2_bifurcation(
     branch_asw = branch_silhouette(adata, branching_t)
     adata.uns["branch_asw"] = branch_asw
     adata.uns["trajectory_names"] = list(orders.keys())
+
+    # Run record (explains the long tail of run times). Wall-clock seconds per stage; the h5ad
+    # write time is added to the returned in-memory adata only, since the file is already written.
+    adata.uns["n_epochs"] = len(decipher.train_losses_)
+    adata.uns["git_sha"], adata.uns["git_dirty"] = _git_state()
+    adata.uns["stage_seconds"] = {
+        "simulate": t_simulated - t_start,
+        "train": t_trained - t_simulated,
+        "r2_and_figure": t_recon - t_trained,
+        "clustering_trajectories_rotate_time": t_trajectories - t_recon,
+        "vspace_figure": t_vspace - t_trajectories,
+    }
 
     if wandb_run is not None:
         # Both log() and summary: log() makes it plottable against the sweep axes, summary makes
@@ -257,7 +297,12 @@ def train_and_compute_rho_r2_bifurcation(
         f"{prefix}sigma{shift_sigma}_seed{seed}_{model_tag}"
         f"_{_data_tag(branching_t, batch_mode)}_decipherseed_{decipher_seed}.h5ad",
     )
+    t_before_write = time.perf_counter()
     adata.write(trained_h5ad_path)
+    adata.uns["stage_seconds"] = {
+        **adata.uns["stage_seconds"],
+        "h5ad_write": time.perf_counter() - t_before_write,
+    }
 
     return (
         abs(rho),

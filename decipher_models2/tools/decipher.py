@@ -55,6 +55,7 @@ def check_adata_has_integer_counts(adata):
         )
 
 
+@torch.no_grad()
 def predictive_log_likelihood(decipher, dataloader, n_samples=5):
     log_weights = []
     old_beta = decipher.config.beta
@@ -74,7 +75,7 @@ def predictive_log_likelihood(decipher, dataloader, n_samples=5):
     finally:
         decipher.config.beta = old_beta
 
-    log_z = torch.logsumexp(torch.tensor(log_weights) - np.log(n_samples), 0)
+    log_z = torch.logsumexp(torch.stack(log_weights) - np.log(n_samples), 0)
     return log_z.item()
 
 
@@ -246,11 +247,6 @@ def decipher_train(
             train_losses.append(loss)
             train_elbo += loss
             train_elbo_n_obs += xc[0].shape[0]
-            pbar.set_description(
-                f"Epoch {epoch} (batch {len(train_losses)}/{n_batches}) | "
-                f"| train elbo: {train_elbo / train_elbo_n_obs:.2f} (last epoch: {last_train_elbo:.2f}) | val ll:"
-                f" {val_nll:.2f}"
-            )
 
         decipher.train_losses_.append(train_elbo / train_elbo_n_obs)
 
