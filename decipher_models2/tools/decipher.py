@@ -2,6 +2,7 @@ import logging
 import os
 
 import numpy as np
+import pandas as pd
 import pyro
 import scanpy as sc
 import scipy
@@ -84,9 +85,13 @@ def _make_train_val_split(adata, val_frac, seed):
     cell_idx = np.arange(adata.shape[0])
     np.random.default_rng(seed).shuffle(cell_idx)
     val_idx = cell_idx[-n_val:]
-    adata.obs["decipher_split"] = "train"
-    adata.obs.loc[adata.obs.index[val_idx], "decipher_split"] = "validation"
-    adata.obs["decipher_split"] = adata.obs["decipher_split"].astype("category")
+    # Assign by position, not by name: with repeated obs names (the simulators' `ad.concat`
+    # reuses '0'..'499' per batch) `.loc[names]` marked every cell sharing a picked name, giving
+    # ~58/42 instead of 90/10. Same shuffle and `val_idx`, so with unique names the result is
+    # identical to the upstream by-name version (`decipher_models`).
+    split = np.full(adata.shape[0], "train", dtype=object)
+    split[val_idx] = "validation"
+    adata.obs["decipher_split"] = pd.Categorical(split, categories=["train", "validation"])
     logging.info(
         "Added `.obs['decipher_split']`: the Decipher train/validation split.\n"
         f" {n_val} cells in validation set."
