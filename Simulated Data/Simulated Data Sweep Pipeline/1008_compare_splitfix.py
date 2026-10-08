@@ -141,7 +141,9 @@ def fetch_wandb_epochs(run_ids: pd.Series) -> pd.Series:
             out[idx] = np.nan
             continue
         run = api.run(f"{WANDB_PATH}/{run_id}")
-        out[idx] = sum(1 for _ in run.scan_history(keys=["train_elbo"]))
+        # scan_history(keys=...) can also return the post-training rows with train_elbo None.
+        rows = run.scan_history(keys=["train_elbo"])
+        out[idx] = sum(1 for row in rows if row.get("train_elbo") is not None)
     return pd.Series(out, dtype=float)
 
 
