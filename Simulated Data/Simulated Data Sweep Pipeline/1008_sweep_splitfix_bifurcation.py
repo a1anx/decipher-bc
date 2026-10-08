@@ -254,6 +254,22 @@ def _wandb_init(job, wandb):
     )
 
 
+# CSV column -> wandb config key, for values known only after training. The pipeline already
+# puts DecipherConfig in the wandb config (n_epochs there is the configured maximum, 1000), and
+# wandb refuses to change an existing key, so the epoch count actually trained gets its own key.
+WANDB_RESULT_KEYS = {
+    "n_train": "n_train",
+    "n_val": "n_val",
+    "n_epochs": "n_epochs_trained",
+    "git_sha": "git_sha",
+    "git_dirty": "git_dirty",
+}
+
+
+def _wandb_result_config(record):
+    return {wandb_key: record[col] for col, wandb_key in WANDB_RESULT_KEYS.items()}
+
+
 def run_one(job):
     """Train one model on one dataset. Returns a CSV row; never raises."""
     import numpy as np
@@ -307,9 +323,7 @@ def run_one(job):
             error=None,
         )
         if run is not None:  # known only after training
-            run.config.update(
-                {k: record[k] for k in ("n_train", "n_val", "n_epochs", "git_sha", "git_dirty")}
-            )
+            run.config.update(_wandb_result_config(record))
     except Exception as e:  # one bad cell must not take down 167 others
         record.update(
             rho=np.nan,
