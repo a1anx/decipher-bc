@@ -8,7 +8,10 @@ only the `native` and `model5` presets), where the split is to be fixed in code.
 from the 0918 function:
   - the model is built from `decipher_models2` (`_build_model` below);
   - `uns["n_train"]`, `uns["n_val"]` record the split actually used;
-  - `run_date` (a `%m%d` string) replaces the per-job `datetime.now()` for the output dir.
+  - `run_date` (a `%m%d` string) replaces the per-job `datetime.now()` for the output dir;
+  - `package` picks the model package (`decipher_models2`, or `decipher_m5` for the 1008
+    embedding-table check); figures from any other package go to `figs_<package>/` so they never
+    overwrite the `decipher_models2` ones.
 The 0918 modules are untouched; the simulator and every other helper are imported from them.
 See Claude Files/plans/1007_splitfix-relay/.
 """
@@ -23,8 +26,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.stats import spearmanr
 
-from decipher_models2.presets import PRESETS
-
 _bif = importlib.import_module("0918_simulated_data_pipeline_bifurcation")
 shift_magnitudes_multivariate_bifurcation = _bif.shift_magnitudes_multivariate_bifurcation
 _data_tag = _bif._data_tag
@@ -32,13 +33,19 @@ branch_cluster_orders = _bif.branch_cluster_orders
 branch_silhouette = _bif.branch_silhouette
 
 
-def _build_model(model: str):
-    """Return (dc, DecipherConfig, preset_kwargs) for one model name, from `decipher_models2`."""
-    if model not in PRESETS:
-        raise ValueError(f"unknown model {model!r}. Expected one of: {', '.join(PRESETS)}")
-    dc = importlib.import_module("decipher_models2")
-    DecipherConfig = importlib.import_module("decipher_models2.tools._decipher").DecipherConfig
-    return dc, DecipherConfig, PRESETS[model]
+PACKAGES = ("decipher_models2", "decipher_m5")
+
+
+def _build_model(model: str, package: str = "decipher_models2"):
+    """Return (dc, DecipherConfig, preset_kwargs) for one model name, from `package`."""
+    if package not in PACKAGES:
+        raise ValueError(f"unknown package {package!r}. Expected one of: {', '.join(PACKAGES)}")
+    presets = importlib.import_module(f"{package}.presets").PRESETS
+    if model not in presets:
+        raise ValueError(f"unknown model {model!r}. Expected one of: {', '.join(presets)}")
+    dc = importlib.import_module(package)
+    DecipherConfig = importlib.import_module(f"{package}.tools._decipher").DecipherConfig
+    return dc, DecipherConfig, presets[model]
 
 
 _ARM_FOLDER = {("native", "genes"): "native_genes", ("native", "z"): "native_z"}
@@ -96,6 +103,7 @@ def train_and_compute_rho_r2_bifurcation(
     wandb_run=None,
     run_date: str = None,
     arm: str = None,
+    package: str = "decipher_models2",
 ):
     """Generate bifurcating data, train one variant, and score it.
 
@@ -116,6 +124,9 @@ def train_and_compute_rho_r2_bifurcation(
     arm : str or None
         Display name used in the v-space figure title (e.g. "Set3 zx2"), as the 0918 post-sweep
         figures did. None = the model name.
+    package : str
+        Model package to train through (`PACKAGES`). Figures from a package other than
+        `decipher_models2` go to `figs_<package>/` instead of `figs/`.
 
     Returns
     -------
@@ -140,7 +151,7 @@ def train_and_compute_rho_r2_bifurcation(
         dim_z = n_z_dims
 
     t_simulated = time.perf_counter()
-    dc, DecipherConfig, preset = _build_model(model)
+    dc, DecipherConfig, preset = _build_model(model, package)
     model_tag = model
 
     config = DecipherConfig(
@@ -194,7 +205,9 @@ def train_and_compute_rho_r2_bifurcation(
         y=1.02,
         fontsize=11,
     )
-    figs_dir = os.path.join(out_root, "figs")
+    figs_dir = os.path.join(
+        out_root, "figs" if package == "decipher_models2" else f"figs_{package}"
+    )
     os.makedirs(figs_dir, exist_ok=True)
     fig.savefig(
         _fig_path(

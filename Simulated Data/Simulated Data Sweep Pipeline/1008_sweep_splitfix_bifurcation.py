@@ -17,6 +17,9 @@ Usage
     python "Simulated Data/Simulated Data Sweep Pipeline/1008_sweep_splitfix_bifurcation.py" --dry-run
     nohup python ... --workers 1 > sweep.log 2>&1 &
 
+`--package decipher_m5 --tag <tag>` trains the same cells through `decipher_m5` (model5 with
+embedding tables) instead; its figures go to `<MMDD>/figs_decipher_m5/`.
+
 Re-running resumes: rows already completed in the CSV are skipped. The output dir (%m%d) is fixed
 once at launch and passed to every job, so a run crossing midnight does not split across dirs.
 """
@@ -59,7 +62,7 @@ SIM_KWARGS = dict(
 )
 
 NOTEBOOK_TAG = "sweep1008_splitfix"
-PACKAGE = "decipher_models2"  # the model package every run trains through; recorded per row
+PACKAGE = "decipher_models2"  # default model package (--package); recorded per row
 DEFAULT_WORKERS = 1  # this VM has 1 vCPU; raise with --workers on a bigger one
 
 # wandb. Same entity/project conventions as wandb_sigma_sweep.py so this sweep sits alongside the
@@ -75,7 +78,7 @@ DEVICE = "cpu"  # the T4's driver is not installed; see the plan. Tiny model, 16
 KEY = ["model", "batch_mode", "bifurcation", "shift_sigma", "seed", "decipher_seed"]
 
 
-def jobs(notebook_tag=NOTEBOOK_TAG, use_wandb=True, run_date=None):
+def jobs(notebook_tag=NOTEBOOK_TAG, use_wandb=True, run_date=None, package=PACKAGE):
     """The full grid, as a list of dicts. Order is deterministic.
 
     `notebook_tag` is carried IN each job rather than read from module scope by the worker,
@@ -102,6 +105,7 @@ def jobs(notebook_tag=NOTEBOOK_TAG, use_wandb=True, run_date=None):
                                 notebook_tag=notebook_tag,
                                 use_wandb=use_wandb,
                                 run_date=run_date,
+                                package=package,
                             )
                         )
     return out
@@ -156,11 +160,9 @@ def _init_worker():
 
     pyro.enable_validation(False)
 
-    from decipher_models2.utils import DECIPHER_GLOBALS
-
-    DECIPHER_GLOBALS["save_folder"] = os.path.join(
-        _REPO_ROOT, "_decipher_models", f"sweep_{os.getpid()}"
-    )
+    save_folder = os.path.join(_REPO_ROOT, "_decipher_models", f"sweep_{os.getpid()}")
+    for package in ("decipher_models2", "decipher_m5"):
+        importlib.import_module(f"{package}.utils").DECIPHER_GLOBALS["save_folder"] = save_folder
 
 
 _WANDB_INIT_RETRIES = 3
@@ -247,7 +249,7 @@ def _wandb_init(job, wandb):
             "shift_sigma": job["shift_sigma"],
             "sim_seed": job["seed"],
             "decipher_seed": job["decipher_seed"],
-            "package": PACKAGE,
+            "package": job["package"],
             **SIM_KWARGS,
         },
         reinit="finish_previous",  # one worker process inits a fresh run per job
@@ -303,6 +305,7 @@ def run_one(job):
             wandb_run=run,
             run_date=job["run_date"],
             arm=job["arm"],
+            package=job["package"],
             **SIM_KWARGS,
         )
         record.update(
@@ -319,7 +322,7 @@ def run_one(job):
             git_sha=_adata.uns["git_sha"],
             git_dirty=_adata.uns["git_dirty"],
             **{f"seconds_{k}": round(v, 1) for k, v in _adata.uns["stage_seconds"].items()},
-            package=PACKAGE,
+            package=job["package"],
             error=None,
         )
         if run is not None:  # known only after training
@@ -338,7 +341,7 @@ def run_one(job):
             n_epochs=np.nan,
             git_sha=None,
             git_dirty=None,
-            package=PACKAGE,
+            package=job["package"],
             error=f"{type(e).__name__}: {e}",
         )
         if run is not None:
@@ -377,6 +380,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="list the grid and exit")
     ap.add_argument("--limit", type=int, default=None, help="run only the first N jobs")
     ap.add_argument("--tag", default=NOTEBOOK_TAG)
+    ap.add_argument("--package", default=PACKAGE, choices=["decipher_models2", "decipher_m5"])
+    ap.add_argument("--models", nargs="+", default=None, help="keep only these presets")
     # Subsetting flags exist so a smoke run is a normal invocation of THIS FILE. Do not try to
     # shrink the grid by importing this module and reassigning SHIFT_SIGMAS: the pool uses the
     # "spawn" start method, which re-executes __main__ from its path in every child, so a module
@@ -418,8 +423,11 @@ def main():
         notebook_tag=args.tag,
         use_wandb=not args.no_wandb,
         run_date=today,
+        package=args.package,
     )
     done, prior = completed_keys(csv_path)
+    if args.models:
+        all_jobs = [j for j in all_jobs if j["model"] in args.models]
     todo = [j for j in all_jobs if tuple(str(j[k]) for k in KEY) not in done]
     if args.limit:
         todo = todo[: args.limit]
@@ -431,6 +439,7 @@ def main():
     )
     print(f"already ok: {len(done)}")
     print(f"to run    : {len(todo)}   workers: {args.workers}   device: {DEVICE}")
+    print(f"package   : {args.package}")
     print(f"csv       : {csv_path}")
     print(
         "wandb     : "
