@@ -7,6 +7,7 @@ a 90/10 train/val split stratified by sample, and renamed batch/lineage obs colu
 Run: .venv/bin/python "Real Data/Healthy Human Bone Marrow Mononuclear Cells/1008_bmmc_build_shared.py"
 """
 
+import argparse
 import hashlib
 import importlib.util
 from pathlib import Path
@@ -30,14 +31,19 @@ RENAME = {"DonorNumber": "donor", "Site": "site", "batch": "sample"}
 N_HVG, N_HVG_SMALL, VAL_FRACTION, SEED = 5000, 2000, 0.1, 0
 
 
-def filter_lineage_cells(adata: ad.AnnData, lineage_map: pd.DataFrame) -> ad.AnnData:
-    """Keep cells whose `cell_type` maps to a non-`exclude` lineage; add `lineage`, `lineage_rank`."""
+def filter_lineage_cells(
+    adata: ad.AnnData, lineage_map: pd.DataFrame, exclude_lineages: tuple[str, ...] = ()
+) -> ad.AnnData:
+    """Keep cells whose `cell_type` maps to a lineage not `exclude` or in `exclude_lineages`.
+
+    Adds `lineage` and `lineage_rank`.
+    """
     mapping = lineage_map.set_index("cell_type")
     unknown = set(adata.obs["cell_type"].astype(str)) - set(mapping.index)
     if unknown:
         raise ValueError(f"cell types missing from the lineage map: {sorted(unknown)}")
     lineage = adata.obs["cell_type"].astype(str).map(mapping["lineage"])
-    keep = (lineage != "exclude").to_numpy()
+    keep = (~lineage.isin(["exclude", *exclude_lineages])).to_numpy()
     out = adata[keep].copy()
     out.obs["lineage"] = lineage[keep].to_numpy()
     out.obs["lineage_rank"] = (
@@ -69,10 +75,14 @@ def flag_nested_hvgs(adata: ad.AnnData, n_large: int, n_small: int) -> None:
 
 
 def build_shared(
-    adata: ad.AnnData, lineage_map: pd.DataFrame, n_hvg: int = N_HVG, n_hvg_small: int = N_HVG_SMALL
+    adata: ad.AnnData,
+    lineage_map: pd.DataFrame,
+    n_hvg: int = N_HVG,
+    n_hvg_small: int = N_HVG_SMALL,
+    exclude_lineages: tuple[str, ...] = (),
 ) -> ad.AnnData:
     """adata: GEX-only, with layers['counts'] and the source obs columns. Returns the shared file."""
-    out = filter_lineage_cells(adata, lineage_map)
+    out = filter_lineage_cells(adata, lineage_map, exclude_lineages)
     out.layers["counts"] = sp.csr_matrix(out.layers["counts"]).astype(np.int32)
     out.X = out.layers["counts"].astype(np.float32)
     out.obs = out.obs.rename(columns=RENAME)
@@ -86,7 +96,9 @@ def build_shared(
     return out
 
 
-def load_gex_lineage_cells(lineage_map: pd.DataFrame) -> ad.AnnData:
+def load_gex_lineage_cells(
+    lineage_map: pd.DataFrame, exclude_lineages: tuple[str, ...] = ()
+) -> ad.AnnData:
     """Stream GEX counts of the kept cells from the legacy-format file (anndata's reader OOMs)."""
     spec = importlib.util.spec_from_file_location("load_bmmc_1002", HERE / "1002_load_bmmc_cite.py")
     helpers = importlib.util.module_from_spec(spec)
@@ -95,7 +107,7 @@ def load_gex_lineage_cells(lineage_map: pd.DataFrame) -> ad.AnnData:
         obs, var = helpers.read_frame(f, "obs"), helpers.read_frame(f, "var")
         gex = (var["feature_types"] == "GEX").to_numpy()
         kept = obs["cell_type"].astype(str).map(lineage_map.set_index("cell_type")["lineage"])
-        rows = np.flatnonzero((kept != "exclude").to_numpy())
+        rows = np.flatnonzero((~kept.isin(["exclude", *exclude_lineages])).to_numpy())
         counts = helpers.read_rows(f, "layers/counts", rows, gex, len(var))
     adata = ad.AnnData(X=counts, obs=obs.iloc[rows].copy(), var=var[gex].copy())
     adata.layers["counts"] = counts
@@ -111,8 +123,16 @@ def sha256_of(path: Path) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--exclude-lineages", nargs="*", default=[], help="lineages to drop")
+    exclude = tuple(parser.parse_args().exclude_lineages)
     lineage_map = pd.read_csv(LINEAGE_MAP)
-    shared = build_shared(load_gex_lineage_cells(lineage_map), lineage_map)
+    unknown = set(exclude) - set(lineage_map["lineage"])
+    if unknown:
+        raise ValueError(f"--exclude-lineages not in the lineage map: {sorted(unknown)}")
+    shared = build_shared(
+        load_gex_lineage_cells(lineage_map, exclude), lineage_map, exclude_lineages=exclude
+    )
     shared.write_h5ad(SHARED)
     CHECKSUM.write_text(f"{sha256_of(SHARED)}  {SHARED.name}\n")
     print(shared)

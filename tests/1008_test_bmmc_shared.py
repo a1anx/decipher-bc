@@ -111,3 +111,11 @@ def test_unknown_cell_type_raises(built):
     bad.obs["cell_type"] = "Mystery"
     with pytest.raises(ValueError, match="missing from the lineage map"):
         shared.filter_lineage_cells(bad, LINEAGE_MAP)
+
+
+def test_exclude_lineages_drops_only_those_cells(built):
+    source = built[0]
+    out = shared.filter_lineage_cells(source, LINEAGE_MAP, exclude_lineages=("myeloid",))
+    expected = source.obs_names[source.obs["cell_type"].isin(["HSC", "Ery"])]
+    assert list(out.obs_names) == list(expected)
+    assert set(out.obs["lineage"]) == {"HSC", "erythroid"}
