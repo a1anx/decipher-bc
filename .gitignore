@@ -38,3 +38,9 @@ CLAUDE.md
 
 # Test output (ephemeral pytest junit/log artifacts)
 test-results/
+
+# Compressed raw data (e.g. GSE194122 BMMC .h5ad.gz, 616 MB > GitHub's 100 MB limit)
+*.h5ad.gz
+
+# Slide decks under Claude Files/ stay local like the rest of the folder (each rebuild is ~44 MB)
+Claude Files/**/*.pptx
