@@ -13,7 +13,8 @@ ADDED 2026-10-08. `decipher_m5` was copied from `decipher_models2` and trimmed t
 PRESETS = {
     # baseline -- no batch conditioning anywhere
     "native": dict(batch_conditioning="none", mean_field_v=False),
-    # b -> z edge deleted; batch enters encoder_x_to_z and decoder_z_to_x as a one-hot context.
+    # b -> z edge deleted; batch enters encoder_x_to_z and decoder_z_to_x as a learned per-batch
+    # row (tables batch_ctx_enc / batch_ctx_dec) added at the first layer.
     "model5": dict(batch_conditioning="decoder_encoder", mean_field_v=False),
 }
 

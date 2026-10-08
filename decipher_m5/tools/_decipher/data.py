@@ -9,7 +9,7 @@ import torch.distributions
 import torch.nn.functional
 import torch.utils.data
 
-from decipher_m5.tools._decipher import Decipher, DecipherConfig
+from decipher_m5.tools._decipher import Decipher, DecipherConfig, remap_model5_state_dict
 from decipher_m5.utils import DECIPHER_GLOBALS, create_decipher_uns_key
 
 logger = logging.getLogger(__name__)
@@ -77,14 +77,36 @@ def decipher_load_model(adata):
     if "run_id" not in adata.uns["decipher"]:
         raise ValueError("No decipher model has been saved for this AnnData object.")
 
-    model_config = DecipherConfig(**adata.uns["decipher"]["config"])
+    model_config = DecipherConfig(**_drop_removed_config_keys(adata.uns["decipher"]["config"]))
     model = Decipher(model_config)
     model_run_id = adata.uns["decipher"]["run_id"]
     save_folder = DECIPHER_GLOBALS["save_folder"]
     full_path = os.path.join(save_folder, model_run_id)
-    model.load_state_dict(torch.load(os.path.join(full_path, "decipher_model.pt")))
+    state_dict = torch.load(os.path.join(full_path, "decipher_model.pt"))
+    if model.batch_ctx_enc is not None and "batch_ctx_enc.weight" not in state_dict:
+        # A one-hot model5 checkpoint from decipher_models2 / decipher_models.
+        state_dict = remap_model5_state_dict(state_dict)
+    model.load_state_dict(state_dict)
     model.eval()
     return model
+
+
+def _drop_removed_config_keys(config: dict) -> dict:
+    """Drop the config keys `decipher_m5` removed, so older checkpoints still load.
+
+    `decipher_models2` / `decipher_models` configs carry `batch_embedding_mode` and
+    `dim_batch_embedding`. Only `concat_x` is model5; a batch-conditioned config with any other
+    mode is a different model and raises.
+    """
+    config = dict(config)
+    mode = config.pop("batch_embedding_mode", "concat_x")
+    config.pop("dim_batch_embedding", None)
+    if config.get("batch_conditioning", "none") != "none" and mode != "concat_x":
+        raise ValueError(
+            f"Checkpoint has batch_embedding_mode={mode!r}; decipher_m5 only builds the "
+            f"concat_x model (model5). Load it with the package that trained it."
+        )
+    return config
 
 
 def make_data_loader_from_adata(adata, batch_size=64, context_discrete_keys=None, **kwargs):

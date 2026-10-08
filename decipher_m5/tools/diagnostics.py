@@ -61,11 +61,11 @@ def reconstruction_r2_log1p(decipher, adata):
 def batch_effect_recovery(decipher, adata):
     """Compare the batch effect the model LEARNED against the one in the data.
 
-    model5 has no additive batch table, so `decipher_z_raw - decipher_z` is not
+    model5 has no additive batch shift in z, so `decipher_z_raw - decipher_z` is not
     a per-batch constant and cannot be read as the learned shift. This is the replacement.
 
-    Why not just read decoder_z_to_x's batch columns and correlate them against
-    uns["gene_shift_matrix"]? Two mismatches stack, and neither is a bug:
+    Why not just read the decoder's per-batch logit rows (batch_ctx_dec.weight.T) and correlate
+    them against uns["gene_shift_matrix"]? Two mismatches stack, and neither is a bug:
 
       1. Softmax shift-invariance. mu = softmax(decoder_z_to_x(...)), so adding a constant to
          all n_genes logits of one batch changes nothing. Each batch column is identified only

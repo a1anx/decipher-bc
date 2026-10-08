@@ -2,6 +2,11 @@
 
 Copied from `decipher_models2` on 2026-10-08 and trimmed to the one-hot `concat_x` batch path:
 the `concat_z` and `additive` branches, their tables and helpers are gone.
+
+model5's batch context is two learned tables, `batch_ctx_enc` and `batch_ctx_dec`, whose rows are
+added to the first-layer pre-activation of `encoder_x_to_z` and `decoder_z_to_x`. That is the
+same function as `decipher_models2`'s `Linear(B + in_dim)` on `[one_hot(b), input]`:
+W [1_b; x] + c = W[:, b] + W_x x + c. `remap_model5_state_dict` converts its checkpoints.
 """
 
 import dataclasses
@@ -44,8 +49,9 @@ class DecipherConfig:
     # `batch_conditioning`:
     #   "none"            -- native. No batch anywhere.
     #   "decoder_encoder" -- model5. The b -> z edge is deleted; the prior is identical to base
-    #                        Decipher. Batch enters decoder_z_to_x and encoder_x_to_z as a fixed
-    #                        one-hot `context` of width n_batches, at the first layer only.
+    #                        Decipher. Batch enters decoder_z_to_x and encoder_x_to_z as a learned
+    #                        per-batch row (batch_ctx_dec / batch_ctx_enc) added at the first
+    #                        layer only.
     batch_conditioning: Literal["none", "decoder_encoder"] = "none"
     mean_field_v: bool = False
     n_batches: int = 0
@@ -135,19 +141,14 @@ class Decipher(nn.Module):
         self.config = config
         self.dummy_param = nn.Parameter(torch.empty(0))
 
-        # No batch table is learned: the context is a fixed one-hot of width n_batches, the same
-        # on the encoder and the decoder side (0 for native, which never reads it).
-        context_dim = config.n_batches if config.batch_conditioning == "decoder_encoder" else 0
-
         # 2. Encoder
-        # ConditionalDenseNN joins the context onto the input at the first layer, so the batch
-        # reaches BOTH output heads -- z_loc and z_scale come out of one final Linear and are
-        # split afterwards.
+        # The batch row is added to the first hidden pre-activation (before BatchNorm), so the
+        # batch reaches BOTH output heads -- z_loc and z_scale come out of one final Linear and
+        # are split afterwards.
         self.encoder_x_to_z = ConditionalDenseNN(
             self.config.dim_genes,
             [128],
             [self.config.dim_z] * 2,
-            context_dim=context_dim,
         )
         self.encoder_zx_to_v = ConditionalDenseNN(
             (
@@ -168,15 +169,23 @@ class Decipher(nn.Module):
             output_dims=[self.config.dim_z] * 2,
         )
         ## z -> x (reconstruction). Batch-conditioned under model5.
-        ## With layers_z_to_x = () this is a single Linear(dim_z + n_batches, dim_genes), and
-        ## since the context is concatenated first, weight[:, :n_batches] is n_batches free
-        ## gene-space vectors -- one per batch, directly comparable to uns["gene_shift_matrix"].
+        ## With layers_z_to_x = () this is a single Linear(dim_z, dim_genes) and the batch row
+        ## lands straight on the logits, so batch_ctx_dec.weight.T (dim_genes x n_batches) is
+        ## n_batches free gene-space vectors -- directly comparable to uns["gene_shift_matrix"].
         self.decoder_z_to_x = ConditionalDenseNN(
             input_dim=self.config.dim_z,
             hidden_dims=config.layers_z_to_x,
             output_dims=[self.config.dim_genes],
-            context_dim=context_dim,
         )
+
+        # 4. Batch context tables (model5 with at least one batch; None otherwise, so native
+        # builds and draws exactly what it always did). Two independent tables: a shared one
+        # would be a different model.
+        self.batch_ctx_enc = None
+        self.batch_ctx_dec = None
+        if config.batch_conditioning == "decoder_encoder" and config.n_batches > 0:
+            self.batch_ctx_enc = _matched_batch_table(self.encoder_x_to_z, config.n_batches)
+            self.batch_ctx_dec = _matched_batch_table(self.decoder_z_to_x, config.n_batches)
 
         self._epsilon = 1e-5
 
@@ -188,32 +197,27 @@ class Decipher(nn.Module):
 
     # ---- batch context helpers ----
 
-    def _batch_context(self, batch_idx, like):
-        """One-hot batch context, shape (n_cells, n_batches), or None when there are none.
+    @staticmethod
+    def _batch_context(table, batch_idx, like):
+        """Per-cell rows of `table`, shape (n_cells, width), or None when there is no table.
 
-        Returned as None -- not zeros -- when n_batches == 0, because a ConditionalDenseNN
-        built with context_dim=0 never reads its `context` argument. That makes the mode
-        degrade to the batch-blind model instead of raising.
+        None -- not zeros -- when the model has no table (native, or n_batches == 0): the
+        network then adds no offset, so the mode degrades to the batch-blind model instead of
+        raising. `batch_idx=None` falls back to batch 0 for every cell.
         """
-        if self.config.n_batches == 0:
+        if table is None:
             return None
         if batch_idx is None:
             batch_idx = like.new_zeros(like.shape[0]).long()
-        return torch.nn.functional.one_hot(batch_idx, num_classes=self.config.n_batches).to(
-            like.dtype
-        )
+        return table(batch_idx)
 
     def _encoder_context(self, batch_idx, like):
-        """The context for encoder_x_to_z: None unless the guide is batch-conditioned."""
-        if self.config.batch_conditioning == "none":
-            return None
-        return self._batch_context(batch_idx, like)
+        """The offset for encoder_x_to_z: None unless the guide is batch-conditioned."""
+        return self._batch_context(self.batch_ctx_enc, batch_idx, like)
 
     def _recon_context(self, batch_idx, like):
-        """The context for decoder_z_to_x: None unless the decoder is batch-conditioned."""
-        if self.config.batch_conditioning == "none":
-            return None
-        return self._batch_context(batch_idx, like)
+        """The offset for decoder_z_to_x: None unless the decoder is batch-conditioned."""
+        return self._batch_context(self.batch_ctx_dec, batch_idx, like)
 
     def model(self, x, batch_idx=None):
         pyro.module("decipher", self)
@@ -240,7 +244,7 @@ class Decipher(nn.Module):
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
 
             # z -> x reconstruction. p(x|z,b) under model5, p(x|z) under native.
-            mu = self.decoder_z_to_x(z, context=self._recon_context(batch_idx, x))
+            mu = self.decoder_z_to_x(z, offset=self._recon_context(batch_idx, x))
 
             mu = softmax(mu, dim=-1)
             library_size = x.sum(axis=-1, keepdim=True)
@@ -261,7 +265,7 @@ class Decipher(nn.Module):
             x = torch.log1p(x)
 
             # _encoder_context is None unless the guide is batch-conditioned.
-            z_loc, z_scale = self.encoder_x_to_z(x, context=self._encoder_context(batch_idx, x))
+            z_loc, z_scale = self.encoder_x_to_z(x, offset=self._encoder_context(batch_idx, x))
             z_scale = softplus(z_scale) + self._epsilon
             posterior_z = dist.Normal(z_loc, z_scale).to_event(1)
             z = pyro.sample("z", posterior_z)
@@ -301,7 +305,7 @@ class Decipher(nn.Module):
         acc = None
         for b in range(n_batches):
             batch_idx = torch.full((x.shape[0],), b, dtype=torch.long)
-            zb, _ = self.encoder_x_to_z(x, context=self._batch_context(batch_idx, x))
+            zb, _ = self.encoder_x_to_z(x, offset=self._encoder_context(batch_idx, x))
             acc = zb if acc is None else acc + zb
         return acc / n_batches
 
@@ -352,7 +356,7 @@ class Decipher(nn.Module):
             z_raw, _ = self.encoder_x_to_z(x)
             z = z_raw
         else:
-            z_raw, _ = self.encoder_x_to_z(x, context=self._batch_context(batch_idx, x))
+            z_raw, _ = self.encoder_x_to_z(x, offset=self._encoder_context(batch_idx, x))
             z = self._encoder_common_frame(x)
 
         if self.config.mean_field_v:
@@ -376,7 +380,64 @@ class Decipher(nn.Module):
         # guide() returns the raw (batch-containing) z, which is what decoder_z_to_x expects:
         # the observed counts still contain the batch effect.
         z_loc, _, _, _ = self.guide(x, batch_idx)
-        mu = self.decoder_z_to_x(z_loc, context=self._recon_context(batch_idx, z_loc))
+        mu = self.decoder_z_to_x(z_loc, offset=self._recon_context(batch_idx, z_loc))
         mu = softmax(mu, dim=-1)
         library_size = x.sum(axis=-1, keepdim=True)
         return (library_size * mu).detach().numpy()
+
+
+def _matched_batch_table(net: ConditionalDenseNN, n_batches: int) -> nn.Embedding:
+    """Build the batch table for `net`'s first layer and re-draw that layer to match.
+
+    The one-hot model's first layer was `Linear(n_batches + in_dim, out)`, whose PyTorch default
+    init draws weight AND bias from U(+-1/sqrt(n_batches + in_dim)). Split into a table and a
+    `Linear(in_dim, out)`, the defaults would be N(0, 1) for the table and a larger
+    1/sqrt(in_dim) bound for the Linear, so all three are re-drawn from the original bound.
+    """
+    first = net.layers[0]
+    bound = 1.0 / np.sqrt(n_batches + first.in_features)
+    table = nn.Embedding(n_batches, first.out_features)
+    with torch.no_grad():
+        for p in (table.weight, first.weight, first.bias):
+            p.uniform_(-bound, bound)
+    return table
+
+
+_OLD_FIRST_LAYERS = {
+    "batch_ctx_enc.weight": "encoder_x_to_z.layers.0.weight",
+    "batch_ctx_dec.weight": "decoder_z_to_x.layers.0.weight",
+}
+
+
+def remap_model5_state_dict(old: dict) -> dict:
+    """Convert a one-hot model5 state_dict (`decipher_models2` / `decipher_models`) to this layout.
+
+    Each first layer `W` of shape (out, n_batches + in_dim), applied to `[one_hot(b), input]`,
+    is split into `W[:, :n_batches]` -> the batch table (transposed to n_batches x out) and
+    `W[:, n_batches:]` -> the new `Linear(in_dim, out)`. Biases and every other tensor are
+    copied unchanged. n_batches, dim_genes and dim_z are read off the tensor shapes.
+
+    Raises ValueError when `old` is not a one-hot model5 state_dict.
+    """
+    needed = (*_OLD_FIRST_LAYERS.values(), "encoder_x_to_z.layers.1.weight")
+    missing = [k for k in needed if k not in old]
+    if missing or any(k in old for k in _OLD_FIRST_LAYERS):
+        raise ValueError(
+            f"Not a one-hot model5 state_dict (missing {missing}, or it already has batch "
+            f"tables). Keys: {list(old)}"
+        )
+    dim_z = old["encoder_x_to_z.layers.1.weight"].shape[0] // 2
+    n_batches = old["decoder_z_to_x.layers.0.weight"].shape[1] - dim_z
+    dim_genes = old["encoder_x_to_z.layers.0.weight"].shape[1] - n_batches
+    if n_batches <= 0 or dim_genes <= 0:
+        raise ValueError(
+            f"Shapes give n_batches={n_batches}, dim_genes={dim_genes}, dim_z={dim_z}: this is "
+            f"not a batch-conditioned model5 state_dict (native has no batch columns)."
+        )
+
+    new = dict(old)
+    for table_key, weight_key in _OLD_FIRST_LAYERS.items():
+        w = old[weight_key]
+        new[weight_key] = w[:, n_batches:].clone()
+        new[table_key] = w[:, :n_batches].T.clone()
+    return new

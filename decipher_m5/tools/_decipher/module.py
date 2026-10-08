@@ -29,6 +29,10 @@ class ConditionalDenseNN(torch.nn.Module):
     activation : torch.nn.Module (optional)
         Activation function to use between hidden layers (not applied to the outputs).
         Default: torch.nn.ReLU()
+
+    `forward` also takes an optional `offset`, added to the first layer's output (before its
+    BatchNorm, or onto the network output when there is no hidden layer). Adding a learned
+    per-batch row there is the same function as concatenating a one-hot onto the input.
     """
 
     def __init__(
@@ -78,7 +82,7 @@ class ConditionalDenseNN(torch.nn.Module):
         self.f = activation
         self.batch_norms = torch.nn.ModuleList(batch_norms)
 
-    def forward(self, x, context=None):
+    def forward(self, x, context=None, offset=None):
         if context is not None:
             # We must be able to broadcast the size of the context over the input
             context = context.expand(x.size()[:-1] + (context.size(-1),))
@@ -88,6 +92,8 @@ class ConditionalDenseNN(torch.nn.Module):
             if self.context_dim > 0 and (self.deep_context_injection or i == 0):
                 h = torch.cat([context, h], dim=-1)
             h = layer(h)
+            if offset is not None and i == 0:
+                h = h + offset
             if i < len(self.layers) - 1:
                 h = self.batch_norms[i](h)
                 h = self.f(h)
