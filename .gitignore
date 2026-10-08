@@ -1,11 +1,10 @@
 # Data files
 *.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0803/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0804/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0806/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/wandb_sigma_sweep/*/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0803/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0804/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0806/trained/*.h5ad
 
-Real Data Analysis/Data 1
+Real Data/Data 1
 
 Data/AML Data/
 
@@ -39,3 +38,12 @@ CLAUDE.md
 
 # Sweep run logs (can exceed GitHub's 100MB limit)
 *.log
+
+# Test output (ephemeral pytest junit/log artifacts)
+test-results/
+
+# Compressed raw data (e.g. GSE194122 BMMC .h5ad.gz, 616 MB > GitHub's 100 MB limit)
+*.h5ad.gz
+
+# Slide decks under Claude Files/ stay local like the rest of the folder (each rebuild is ~44 MB)
+Claude Files/**/*.pptx

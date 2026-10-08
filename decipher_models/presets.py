@@ -1,4 +1,4 @@
-"""The ten model arms of the batch-conditioning comparison, as DecipherConfig flag sets.
+"""The seven model arms of the batch-conditioning comparison, as DecipherConfig flag sets.
 
 ADDED 2026-09-18. Single source of truth. This table previously existed byte-identically in
 `tests/test_variant_equivalence.py` and in the bifurcation sweep pipeline, with nothing keeping
@@ -14,6 +14,10 @@ same step in every family (see `batch-conditioning-comparison.md` section 6):
 
 `DecipherConfig.__post_init__` validates these values at construction, so a renamed flag raises
 rather than silently selecting a different model.
+
+CHANGED 2026-09-25. Set 2 (additive, `model1-add`/`model2-add`/`model3-add`) removed from the
+presets: it is excluded from the thesis. `DecipherConfig` still accepts
+`batch_embedding_mode="additive"`, and the standalone `model*-add/` packages are untouched.
 """
 
 PRESETS = {
@@ -28,16 +32,6 @@ PRESETS = {
     ),
     "model3": dict(
         batch_conditioning="decoder_encoder", mean_field_v=True, batch_embedding_mode="concat_z"
-    ),
-    # ---- Set 2: add -> z. Zero-init embedding added onto z_loc after a batch-blind network. ----
-    "model1-add": dict(
-        batch_conditioning="decoder_only", mean_field_v=False, batch_embedding_mode="additive"
-    ),
-    "model2-add": dict(
-        batch_conditioning="decoder_encoder", mean_field_v=False, batch_embedding_mode="additive"
-    ),
-    "model3-add": dict(
-        batch_conditioning="decoder_encoder", mean_field_v=True, batch_embedding_mode="additive"
     ),
     # ---- Set 3: concat -> x. b -> z edge deleted; batch enters the reconstruction as one-hot. ----
     "model4": dict(
@@ -59,9 +53,6 @@ LEGACY_PACKAGES = {
     "model1": "decipher_vz",
     "model2": "decipher_vz2",
     "model3": "decipher_mf",
-    "model1-add": "decipher_vz_add",
-    "model2-add": "decipher_vz2_add",
-    "model3-add": "decipher_mf_add",
     "model4": "decipher_zx",
     "model5": "decipher_zx2",
     "model6": "decipher_mf2",

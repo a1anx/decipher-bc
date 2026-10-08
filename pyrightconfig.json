@@ -1,0 +1,3 @@
+{
+  "exclude": [".venv", "Archive", "wandb", "_decipher_models", "**/Sweeps and Results", "**/__pycache__"]
+}
