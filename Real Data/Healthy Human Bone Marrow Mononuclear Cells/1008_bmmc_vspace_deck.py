@@ -138,7 +138,9 @@ def vspace_png(config: str, seed: int, batch_var: str) -> Path:
 
 def write_figure(adata: ad.AnnData, config: str, seed: int, batch_var: str) -> Path:
     panels = ["cell_type", batch_var, "projected_time"]
-    fig = dc.pl.decipher(adata, color=panels, basis="decipher_v", ncols=3, wspace=0.45)
+    # Shuffled cell order, so no category is painted on top of the others by draw order.
+    shuffled = adata[np.random.default_rng(0).permutation(adata.n_obs)].copy()
+    fig = dc.pl.decipher(shuffled, color=panels, basis="decipher_v", ncols=3, wspace=0.45)
     # Run h5ads carry no training config, so the package titles every panel "No Batch Correction".
     for ax, name in zip(fig.axes, panels):
         ax.set_title(name)

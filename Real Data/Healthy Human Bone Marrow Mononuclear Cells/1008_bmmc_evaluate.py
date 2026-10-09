@@ -662,11 +662,14 @@ def scatter_panel(
         else:
             cats = sorted(set(vals[mask]))
         pal = _palette(cats)
+        # One shuffled draw, so no category is painted on top of the others by draw order.
+        idx = np.random.default_rng(0).permutation(np.flatnonzero(mask & np.isin(vals, cats)))
+        ax.scatter(
+            v[idx, 0], v[idx, 1], s=0.6, c=[pal[c] for c in vals[idx]], rasterized=True,
+            linewidths=0,
+        )  # fmt: skip
         for c in cats:
-            sel = mask & (vals == c)
-            ax.scatter(
-                v[sel, 0], v[sel, 1], s=0.6, color=pal[c], rasterized=True, linewidths=0, label=c
-            )
+            ax.scatter([], [], s=0.6, color=pal[c], label=c)
         ax.legend(
             fontsize=5, markerscale=6, frameon=False, loc="best", ncol=2 if len(cats) > 6 else 1
         )
