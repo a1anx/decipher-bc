@@ -12,7 +12,9 @@ the Leiden cluster holding the most cells of that type. The package's `decipher_
 cells whose cluster lies on a path, which leaves about half of the wide CD14+ Mono cloud untimed.
 So every cell of a lineage (HSC + its branch) is projected onto that trajectory's curve with the
 package's own KNN regression on the curve points; erythroid and myeloid cells take their own
-trajectory's time and HSC the mean of the two. Reads the run h5ads read-only; no retraining.
+trajectory's time and HSC the mean of the two. Before any of this, v is rotated the same way in
+every run (`rotate_v`: v1 along HSC -> G/M prog -> CD14+ -> CD16+ Mono, erythroid arm up); the
+rotation is rigid, so distances and every metric are unchanged. Reads the run h5ads read-only.
 """
 
 import importlib
@@ -26,6 +28,7 @@ from matplotlib import pyplot as plt
 from sklearn.neighbors import KNeighborsRegressor
 
 import decipher_m5 as dc
+from decipher_m5.tools.decipher import rot
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -39,6 +42,8 @@ decks = importlib.import_module("1008_build_splitfix_decks")
 BATCH_VARS = ["donor", "site", "sample"]
 SEEDS = [1, 2, 3]
 TEMPLATE_TITLE = "Sigma = 0.1, Seed = 3"
+MYELOID_ORDER = ["HSC", "G/M prog", "CD14+ Mono", "CD16+ Mono"]
+ERYTHROID_TYPES = ["MK/E prog", "Proerythroblast", "Erythroblast", "Normoblast", "Reticulocyte"]
 
 
 def majority_cluster(cell_type: pd.Series, clusters: pd.Series, label: str) -> str:
@@ -55,8 +60,38 @@ def myeloid_end_label(cell_type: pd.Series, clusters: pd.Series) -> str:
     return "CD16+ Mono" if (top == "CD16+ Mono").any() else "CD14+ Mono"
 
 
+def rotate_v(v: np.ndarray, cell_type: np.ndarray) -> np.ndarray:
+    """The 2x2 orthogonal matrix that orients v the same way in every run.
+
+    v1 follows MYELOID_ORDER: `dc.tl.decipher_rotate_space(v1_col="cell_type",
+    v1_order=MYELOID_ORDER)`'s search and score, applied to the stored v (that function reloads the
+    model and needs counts, which run h5ads lack). That score is mirror-symmetric across v1, so v2 is
+    then flipped to put the erythroid cells' mean on the positive side.
+    """
+    rank = pd.Series(cell_type).map({c: i for i, c in enumerate(MYELOID_ORDER)}).to_numpy()
+    on = ~np.isnan(rank)
+    if len(np.unique(rank[on])) < 2:
+        raise ValueError(f"need at least two of {MYELOID_ORDER} to orient v1")
+
+    def score(r: np.ndarray) -> float:
+        w = v[on] @ r
+        return np.corrcoef(w[:, 0], rank[on])[1, 0] - abs(np.corrcoef(w[:, 1], rank[on])[1, 0])
+
+    candidates = [rot(t, u) for t in np.linspace(0, 2 * np.pi, 100) for u in (1, -1)]
+    best = max(candidates, key=score)
+    if (v[cell_type_is_erythroid(cell_type)] @ best)[:, 1].mean() < 0:
+        best = best @ np.diag([1.0, -1.0])
+    return best
+
+
+def cell_type_is_erythroid(cell_type: np.ndarray) -> np.ndarray:
+    return np.isin(cell_type, ERYTHROID_TYPES)
+
+
 def add_trajectories(adata: ad.AnnData) -> dict[str, list[str]]:
-    """Cluster, build the two trajectories and set `decipher_time`; return each path's clusters."""
+    """Orient v, cluster, build the two trajectories and the times; return each path's clusters."""
+    rotation = rotate_v(adata.obsm["decipher_v"], adata.obs["cell_type"].astype(str).to_numpy())
+    adata.obsm["decipher_v"] = adata.obsm["decipher_v"] @ rotation
     dc.tl.cell_clusters(adata, leiden_resolution=1.0, n_neighbors=10, seed=0)
     ct, cl = adata.obs["cell_type"], adata.obs["decipher_clusters"]
     hsc = majority_cluster(ct, cl, "HSC")
