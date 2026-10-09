@@ -3,14 +3,16 @@
 Same template and layout as `Claude Files/writeups/1008_vspace_native_vs_model5_splitfix_bif.pptx`
 (built by `1008_build_splitfix_decks.py`, whose helpers this reuses): one slide per batch variable
 (donor, site, sample), decipherseeds 1-3 as rows. Each picture is one run's v-space in three panels:
-cell type | the slide's batch variable | decipher_time. There is no ground-truth latent time, so
+cell type | the slide's batch variable | projected decipher time. There is no ground-truth latent time, so
 cell type takes that panel.
 
 Trajectories (no ground-truth cluster order, unlike the simulations): erythroid HSC -> Reticulocyte
 and myeloid HSC -> CD16+ Mono (CD14+ Mono when no cluster is mostly CD16+ Mono); each endpoint is
-the Leiden cluster holding the most cells of that type. `decipher_time` is the package's single
-column, so on the shared HSC clusters the second trajectory overwrites the first, as in the
-simulation decks. Reads the run h5ads read-only; no retraining.
+the Leiden cluster holding the most cells of that type. The package's `decipher_time` only times
+cells whose cluster lies on a path, which leaves about half of the wide CD14+ Mono cloud untimed.
+So every cell of a lineage (HSC + its branch) is projected onto that trajectory's curve with the
+package's own KNN regression on the curve points; erythroid and myeloid cells take their own
+trajectory's time and HSC the mean of the two. Reads the run h5ads read-only; no retraining.
 """
 
 import importlib
@@ -18,8 +20,10 @@ import sys
 from pathlib import Path
 
 import anndata as ad
+import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from sklearn.neighbors import KNeighborsRegressor
 
 import decipher_m5 as dc
 
@@ -68,7 +72,29 @@ def add_trajectories(adata: ad.AnnData) -> dict[str, list[str]]:
         ],
     )
     dc.tl.decipher_time(adata)
-    return {k: list(v["cluster_ids"]) for k, v in adata.uns["decipher"]["trajectories"].items()}
+    trajs = adata.uns["decipher"]["trajectories"]
+    adata.obs["projected_time"] = projected_time(
+        adata.obsm["decipher_v"], adata.obs["lineage"].to_numpy(), trajs
+    )
+    return {k: list(v["cluster_ids"]) for k, v in trajs.items()}
+
+
+def project_onto(v: np.ndarray, trajectory: dict, n_neighbors: int = 10) -> np.ndarray:
+    """Time of each point in `v` from its nearest trajectory points (as `dc.tl.decipher_time`)."""
+    knn = KNeighborsRegressor(n_neighbors=n_neighbors)
+    knn.fit(trajectory["points"], trajectory["times"])
+    return knn.predict(v)
+
+
+def projected_time(v: np.ndarray, lineage: np.ndarray, trajectories: dict) -> np.ndarray:
+    """Each lineage's cells on its own trajectory; HSC the mean of both; other cells NaN."""
+    t = np.full(len(v), np.nan)
+    for name in ("erythroid", "myeloid"):
+        sel = lineage == name
+        t[sel] = project_onto(v[sel], trajectories[name])
+    hsc = lineage == "HSC"
+    t[hsc] = np.mean([project_onto(v[hsc], trajectories[n]) for n in ("erythroid", "myeloid")], 0)
+    return t
 
 
 def vspace_png(config: str, seed: int, batch_var: str) -> Path:
@@ -76,7 +102,7 @@ def vspace_png(config: str, seed: int, batch_var: str) -> Path:
 
 
 def write_figure(adata: ad.AnnData, config: str, seed: int, batch_var: str) -> Path:
-    panels = ["cell_type", batch_var, "decipher_time"]
+    panels = ["cell_type", batch_var, "projected_time"]
     fig = dc.pl.decipher(adata, color=panels, basis="decipher_v", ncols=3, wspace=0.45)
     # Run h5ads carry no training config, so the package titles every panel "No Batch Correction".
     for ax, name in zip(fig.axes, panels):
