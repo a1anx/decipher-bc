@@ -1,0 +1,25 @@
+run_id,trajectory,clusters
+native_hvg2000_ds1,erythroid,8 25 23 22 5 7 19 14 0
+native_hvg2000_ds1,myeloid,8 21 4 9 13 6 20 3
+native_hvg2000_ds2,erythroid,12 15 24 23 21 14 11 22 20 9 0
+native_hvg2000_ds2,myeloid,12 15 4 6 2 17 25 7 8 13
+native_hvg2000_ds3,erythroid,11 16 22 15 17 2 21 12 7
+native_hvg2000_ds3,myeloid,11 16 8 14 1 3 0 10
+BC-donor_hvg2000_ds1,erythroid,20 13 24 17 9 16 23 18 4 1
+BC-donor_hvg2000_ds1,myeloid,20 13 8 26 2
+BC-donor_hvg2000_ds2,erythroid,15 24 23 20 14 9 22 17 0
+BC-donor_hvg2000_ds2,myeloid,15 13 6 10 16 11 8 7 3 19 4
+BC-donor_hvg2000_ds3,erythroid,8 21 19 17 11 23 15 13 0
+BC-donor_hvg2000_ds3,myeloid,8 20 4 10 3 22 18 2 9
+BC-site_hvg2000_ds1,erythroid,19 25 13 8 17 24 20 14 1
+BC-site_hvg2000_ds1,myeloid,19 10 4 5 26 12 16 2 15 21 0
+BC-site_hvg2000_ds2,erythroid,20 12 25 15 6 18 23 14 11 0
+BC-site_hvg2000_ds2,myeloid,20 5 1 2 8 22 10 3 24 7 13
+BC-site_hvg2000_ds3,erythroid,16 24 22 17 7 23 14 0
+BC-site_hvg2000_ds3,myeloid,16 18 12 21 4 2 6 5
+BC-sample_hvg2000_ds1,erythroid,10 21 16 15 9 20 14 3
+BC-sample_hvg2000_ds1,myeloid,10 19 5 6 1 23 7 22 18 11 13
+BC-sample_hvg2000_ds2,erythroid,22 20 32 28 16 5 19 25 8 14 0
+BC-sample_hvg2000_ds2,myeloid,22 20 26 1 21 7
+BC-sample_hvg2000_ds3,erythroid,11 19 25 13 18 3 26 24 22 4 6
+BC-sample_hvg2000_ds3,myeloid,11 19 15 20 16 5 12 1 0 8

@@ -1,0 +1,116 @@
+cell_type,donor,n_cells,total_counts,used
+CD14+ Mono,donor1,7244,22029266.0,True
+CD14+ Mono,donor2,726,5775579.0,True
+CD14+ Mono,donor3,309,3138978.0,True
+CD14+ Mono,donor4,1294,7584124.0,True
+CD14+ Mono,donor5,2561,10702260.0,True
+CD14+ Mono,donor6,2927,10901817.0,True
+CD14+ Mono,donor7,6056,20352241.0,True
+CD14+ Mono,donor8,466,3095931.0,True
+CD14+ Mono,donor9,110,770594.0,True
+CD16+ Mono,donor1,865,2671262.0,True
+CD16+ Mono,donor2,142,1609190.0,True
+CD16+ Mono,donor3,28,270077.0,False
+CD16+ Mono,donor4,129,743142.0,True
+CD16+ Mono,donor5,692,2966461.0,True
+CD16+ Mono,donor6,248,928905.0,True
+CD16+ Mono,donor7,353,1558486.0,True
+CD16+ Mono,donor8,31,252505.0,True
+CD16+ Mono,donor9,147,981854.0,True
+Erythroblast,donor1,2202,22781780.0,True
+Erythroblast,donor2,57,1034836.0,True
+Erythroblast,donor3,228,4219462.0,True
+Erythroblast,donor4,471,9422638.0,True
+Erythroblast,donor5,61,631855.0,True
+Erythroblast,donor6,524,4239635.0,True
+Erythroblast,donor7,307,3902817.0,True
+Erythroblast,donor8,35,560135.0,True
+Erythroblast,donor9,154,4332091.0,True
+G/M prog,donor1,517,2660410.0,True
+G/M prog,donor2,86,1108857.0,True
+G/M prog,donor3,45,529341.0,True
+G/M prog,donor4,308,3275944.0,True
+G/M prog,donor5,24,167996.0,False
+G/M prog,donor6,452,2861300.0,True
+G/M prog,donor7,237,1595685.0,True
+G/M prog,donor8,47,644506.0,True
+G/M prog,donor9,165,2488004.0,True
+HSC,donor1,455,4426235.0,True
+HSC,donor2,72,1413572.0,True
+HSC,donor3,71,1258242.0,True
+HSC,donor4,193,2912407.0,True
+HSC,donor5,38,341149.0,True
+HSC,donor6,400,3248495.0,True
+HSC,donor7,178,1496282.0,True
+HSC,donor8,86,1809743.0,True
+HSC,donor9,210,2410642.0,True
+Lymph prog,donor1,449,4022800.0,True
+Lymph prog,donor2,27,496695.0,False
+Lymph prog,donor3,87,1010403.0,True
+Lymph prog,donor4,208,2570351.0,True
+Lymph prog,donor5,5,52095.0,False
+Lymph prog,donor6,236,1281264.0,True
+Lymph prog,donor7,154,980023.0,True
+Lymph prog,donor8,160,2575252.0,True
+Lymph prog,donor9,355,4660216.0,True
+MK/E prog,donor1,169,1899557.0,True
+MK/E prog,donor2,9,224709.0,False
+MK/E prog,donor3,8,209384.0,False
+MK/E prog,donor4,80,1585463.0,True
+MK/E prog,donor5,10,116980.0,False
+MK/E prog,donor6,168,1796651.0,True
+MK/E prog,donor7,81,1185641.0,True
+MK/E prog,donor8,27,876276.0,False
+MK/E prog,donor9,138,2912341.0,True
+Naive CD20+ B IGKC+,donor1,1663,6020196.0,True
+Naive CD20+ B IGKC+,donor2,150,851363.0,True
+Naive CD20+ B IGKC+,donor3,265,1385474.0,True
+Naive CD20+ B IGKC+,donor4,629,2319110.0,True
+Naive CD20+ B IGKC+,donor5,129,396361.0,True
+Naive CD20+ B IGKC+,donor6,105,289022.0,True
+Naive CD20+ B IGKC+,donor7,88,183966.0,True
+Naive CD20+ B IGKC+,donor8,243,1210639.0,True
+Naive CD20+ B IGKC+,donor9,718,3575887.0,True
+Naive CD20+ B IGKC-,donor1,945,3232969.0,True
+Naive CD20+ B IGKC-,donor2,112,625726.0,True
+Naive CD20+ B IGKC-,donor3,171,947666.0,True
+Naive CD20+ B IGKC-,donor5,89,267378.0,True
+Naive CD20+ B IGKC-,donor6,86,224103.0,True
+Naive CD20+ B IGKC-,donor7,71,146912.0,True
+Naive CD20+ B IGKC-,donor8,133,592139.0,True
+Naive CD20+ B IGKC-,donor9,372,1561364.0,True
+Normoblast,donor1,774,5998013.0,True
+Normoblast,donor2,56,631418.0,True
+Normoblast,donor3,129,1463989.0,True
+Normoblast,donor4,171,1568938.0,True
+Normoblast,donor5,17,88332.0,False
+Normoblast,donor6,164,497760.0,True
+Normoblast,donor7,40,132527.0,True
+Normoblast,donor8,23,167181.0,False
+Normoblast,donor9,61,790018.0,True
+Proerythroblast,donor1,435,8518925.0,True
+Proerythroblast,donor2,10,221618.0,False
+Proerythroblast,donor3,26,424165.0,False
+Proerythroblast,donor4,44,1194050.0,True
+Proerythroblast,donor6,259,4336279.0,True
+Proerythroblast,donor7,225,3480686.0,True
+Proerythroblast,donor8,172,7376939.0,True
+Proerythroblast,donor9,341,13332015.0,True
+Reticulocyte,donor1,1656,14408138.0,True
+Reticulocyte,donor2,279,4059355.0,True
+Reticulocyte,donor3,929,13622946.0,True
+Reticulocyte,donor4,580,4788396.0,True
+Reticulocyte,donor5,116,735973.0,True
+Reticulocyte,donor6,244,1334404.0,True
+Reticulocyte,donor7,291,1477586.0,True
+Reticulocyte,donor8,50,667239.0,True
+Reticulocyte,donor9,127,1958575.0,True
+Transitional B,donor1,274,839979.0,True
+Transitional B,donor2,90,399758.0,True
+Transitional B,donor3,250,1090960.0,True
+Transitional B,donor4,150,492678.0,True
+Transitional B,donor5,9,16672.0,False
+Transitional B,donor6,205,315966.0,True
+Transitional B,donor7,119,192352.0,True
+Transitional B,donor8,130,524636.0,True
+Transitional B,donor9,348,1315084.0,True

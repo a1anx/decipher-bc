@@ -1,0 +1,549 @@
+scope,group,metric,variable,value,n_cells,n_levels
+global,all,ilisi_median,donor,2.0011729076133022,49085,9
+global,all,ilisi_median_norm,donor,0.12514661345166278,49085,9
+global,all,kbet_acceptance,donor,0.015951920138535195,49085,9
+global,all,batch_asw,donor,0.9018943592049236,49085,9
+global,all,ilisi_median_perm,donor,3.6034319417953613,49085,9
+global,all,ilisi_median_norm_perm,donor,0.32542899272442016,49085,9
+global,all,kbet_acceptance_perm,donor,0.29660792502801264,49085,9
+global,all,batch_asw_perm,donor,0.9508507623862289,49085,9
+global,all,ilisi_median,site,1.504040385198589,49085,4
+global,all,ilisi_median_norm,site,0.16801346173286302,49085,4
+global,all,kbet_acceptance,site,0.04056228990526638,49085,4
+global,all,batch_asw,site,0.926299950038284,49085,4
+global,all,ilisi_median_perm,site,2.553652962136856,49085,4
+global,all,ilisi_median_norm_perm,site,0.5178843207122853,49085,4
+global,all,kbet_acceptance_perm,site,0.3568911072629113,49085,4
+global,all,batch_asw_perm,site,0.9839840042027538,49085,4
+global,all,ilisi_median,sample,2.2411531486065166,49085,12
+global,all,ilisi_median_norm,sample,0.11283210441877424,49085,12
+global,all,kbet_acceptance,sample,0.004420902516043598,49085,12
+global,all,batch_asw,sample,0.9136663064269387,49085,12
+global,all,ilisi_median_perm,sample,5.042531715861556,49085,12
+global,all,ilisi_median_norm_perm,sample,0.36750288326014147,49085,12
+global,all,kbet_acceptance_perm,sample,0.31380258734847716,49085,12
+global,all,batch_asw_perm,sample,0.951849373513811,49085,12
+lineage,HSC,ilisi_median,donor,2.3592272309969005,1703,9
+lineage,HSC,ilisi_median_norm,donor,0.16990340387461256,1703,9
+lineage,HSC,kbet_acceptance,donor,0.026423957721667644,1703,9
+lineage,HSC,batch_asw,donor,0.8747139316550281,1703,9
+lineage,HSC,ilisi_median_perm,donor,4.552522176205261,1703,9
+lineage,HSC,ilisi_median_norm_perm,donor,0.4440652720256576,1703,9
+lineage,HSC,kbet_acceptance_perm,donor,0.9406928948913682,1703,9
+lineage,HSC,batch_asw_perm,donor,0.9638615682811584,1703,9
+lineage,HSC,ilisi_median,site,1.8248830397817517,1703,4
+lineage,HSC,ilisi_median_norm,site,0.2749610132605839,1703,4
+lineage,HSC,kbet_acceptance,site,0.10745742806811509,1703,4
+lineage,HSC,batch_asw,site,0.9369488589793321,1703,4
+lineage,HSC,ilisi_median_perm,site,2.9294492419780527,1703,4
+lineage,HSC,ilisi_median_norm_perm,site,0.6431497473260176,1703,4
+lineage,HSC,kbet_acceptance_perm,site,0.9213153258954786,1703,4
+lineage,HSC,batch_asw_perm,site,0.9843007207947237,1703,4
+lineage,HSC,ilisi_median,sample,2.5854659813219705,1703,12
+lineage,HSC,ilisi_median_norm,sample,0.14413327102927004,1703,12
+lineage,HSC,kbet_acceptance,sample,0.008220786846741044,1703,12
+lineage,HSC,batch_asw,sample,0.8872324537297662,1703,12
+lineage,HSC,ilisi_median_perm,sample,5.584364799226593,1703,12
+lineage,HSC,ilisi_median_norm_perm,sample,0.41676043629332665,1703,12
+lineage,HSC,kbet_acceptance_perm,sample,0.9718144450968879,1703,12
+lineage,HSC,batch_asw_perm,sample,0.9494427490463099,1703,12
+lineage,erythroid,ilisi_median,donor,2.3322531361431995,11948,9
+lineage,erythroid,ilisi_median_norm,donor,0.16653164201789994,11948,9
+lineage,erythroid,kbet_acceptance,donor,0.10629394040843655,11948,9
+lineage,erythroid,batch_asw,donor,0.8779187922500856,11948,9
+lineage,erythroid,ilisi_median_perm,donor,3.328645527921598,11948,9
+lineage,erythroid,ilisi_median_norm_perm,donor,0.29108069099019973,11948,9
+lineage,erythroid,kbet_acceptance_perm,donor,0.5909775694676933,11948,9
+lineage,erythroid,batch_asw_perm,donor,0.9439226240154792,11948,9
+lineage,erythroid,ilisi_median,site,1.8767401589272823,11948,4
+lineage,erythroid,ilisi_median_norm,site,0.29224671964242743,11948,4
+lineage,erythroid,kbet_acceptance,site,0.05942417140944091,11948,4
+lineage,erythroid,batch_asw,site,0.9119668171929802,11948,4
+lineage,erythroid,ilisi_median_perm,site,2.7834408162287154,11948,4
+lineage,erythroid,ilisi_median_norm_perm,site,0.5944802720762384,11948,4
+lineage,erythroid,kbet_acceptance_perm,site,0.36767659859390694,11948,4
+lineage,erythroid,batch_asw_perm,site,0.9784112509600209,11948,4
+lineage,erythroid,ilisi_median,sample,2.935586437846048,11948,12
+lineage,erythroid,ilisi_median_norm,sample,0.17596240344054984,11948,12
+lineage,erythroid,kbet_acceptance,sample,0.01498158687646468,11948,12
+lineage,erythroid,batch_asw,sample,0.8885356868996139,11948,12
+lineage,erythroid,ilisi_median_perm,sample,5.207579618227616,11948,12
+lineage,erythroid,ilisi_median_norm_perm,sample,0.38250723802069236,11948,12
+lineage,erythroid,kbet_acceptance_perm,sample,0.3864245061935052,11948,12
+lineage,erythroid,batch_asw_perm,sample,0.9306421334889563,11948,12
+lineage,lymphoid,ilisi_median,donor,2.2340319989834474,9225,9
+lineage,lymphoid,ilisi_median_norm,donor,0.15425399987293092,9225,9
+lineage,lymphoid,kbet_acceptance,donor,0.03447154471544715,9225,9
+lineage,lymphoid,batch_asw,donor,0.9160370755150666,9225,9
+lineage,lymphoid,ilisi_median_perm,donor,3.8236210237524415,9225,9
+lineage,lymphoid,ilisi_median_norm_perm,donor,0.3529526279690552,9225,9
+lineage,lymphoid,kbet_acceptance_perm,donor,0.6650406504065041,9225,9
+lineage,lymphoid,batch_asw_perm,donor,0.9587782969382119,9225,9
+lineage,lymphoid,ilisi_median,site,1.514560438308607,9225,4
+lineage,lymphoid,ilisi_median_norm,site,0.17152014610286903,9225,4
+lineage,lymphoid,kbet_acceptance,site,0.036205962059620594,9225,4
+lineage,lymphoid,batch_asw,site,0.9294271927312396,9225,4
+lineage,lymphoid,ilisi_median_perm,site,3.0690803443380665,9225,4
+lineage,lymphoid,ilisi_median_norm_perm,site,0.6896934481126888,9225,4
+lineage,lymphoid,kbet_acceptance_perm,site,0.6981029810298103,9225,4
+lineage,lymphoid,batch_asw_perm,site,0.9892056850327334,9225,4
+lineage,lymphoid,ilisi_median,sample,2.4438843732056585,9225,12
+lineage,lymphoid,ilisi_median_norm,sample,0.13126221574596897,9225,12
+lineage,lymphoid,kbet_acceptance,sample,0.011056910569105691,9225,12
+lineage,lymphoid,batch_asw,sample,0.9342693765548203,9225,12
+lineage,lymphoid,ilisi_median_perm,sample,5.632188555729063,9225,12
+lineage,lymphoid,ilisi_median_norm_perm,sample,0.4211080505208239,9225,12
+lineage,lymphoid,kbet_acceptance_perm,sample,0.6142005420054201,9225,12
+lineage,lymphoid,batch_asw_perm,sample,0.9584496162922209,9225,12
+lineage,myeloid,ilisi_median,donor,1.6730599915599202,26209,9
+lineage,myeloid,ilisi_median_norm,donor,0.08413249894499003,26209,9
+lineage,myeloid,kbet_acceptance,donor,0.024152008851921095,26209,9
+lineage,myeloid,batch_asw,donor,0.9293291121009523,26209,9
+lineage,myeloid,ilisi_median_perm,donor,3.6312526399004827,26209,9
+lineage,myeloid,ilisi_median_norm_perm,donor,0.32890657998756034,26209,9
+lineage,myeloid,kbet_acceptance_perm,donor,0.8334160021366707,26209,9
+lineage,myeloid,batch_asw_perm,donor,0.9693796209643452,26209,9
+lineage,myeloid,ilisi_median,site,1.3373805375237935,26209,4
+lineage,myeloid,ilisi_median_norm,site,0.11246017917459783,26209,4
+lineage,myeloid,kbet_acceptance,site,0.08432217940402152,26209,4
+lineage,myeloid,batch_asw,site,0.9449520284666691,26209,4
+lineage,myeloid,ilisi_median_perm,site,2.261095771776087,26209,4
+lineage,myeloid,ilisi_median_norm_perm,site,0.4203652572586957,26209,4
+lineage,myeloid,kbet_acceptance_perm,site,0.8920599793963906,26209,4
+lineage,myeloid,batch_asw_perm,site,0.9910564549823784,26209,4
+lineage,myeloid,ilisi_median,sample,1.8227038707471452,26209,12
+lineage,myeloid,ilisi_median_norm,sample,0.0747912609770132,26209,12
+lineage,myeloid,kbet_acceptance,sample,0.009271624251211415,26209,12
+lineage,myeloid,batch_asw,sample,0.935731829398699,26209,12
+lineage,myeloid,ilisi_median_perm,sample,4.773750641383343,26209,12
+lineage,myeloid,ilisi_median_norm_perm,sample,0.34306824012575843,26209,12
+lineage,myeloid,kbet_acceptance_perm,sample,0.8323858216643137,26209,12
+lineage,myeloid,batch_asw_perm,sample,0.9552957632017892,26209,12
+cell_type,CD14+ Mono,ilisi_median,donor,1.5454594669878308,21693,9
+cell_type,CD14+ Mono,ilisi_median_norm,donor,0.06818243337347885,21693,9
+cell_type,CD14+ Mono,kbet_acceptance,donor,0.026875028811137232,21693,9
+cell_type,CD14+ Mono,batch_asw,donor,0.9365580781465026,21693,9
+cell_type,CD14+ Mono,ilisi_median_perm,donor,3.5636370569687577,21693,9
+cell_type,CD14+ Mono,ilisi_median_norm_perm,donor,0.3204546321210947,21693,9
+cell_type,CD14+ Mono,kbet_acceptance_perm,donor,0.9349559765823077,21693,9
+cell_type,CD14+ Mono,batch_asw_perm,donor,0.9751524937551203,21693,9
+cell_type,CD14+ Mono,ilisi_median,site,1.274620858036138,21693,4
+cell_type,CD14+ Mono,ilisi_median_norm,site,0.091540286012046,21693,4
+cell_type,CD14+ Mono,kbet_acceptance,site,0.08292997741206841,21693,4
+cell_type,CD14+ Mono,batch_asw,site,0.9539571016267303,21693,4
+cell_type,CD14+ Mono,ilisi_median_perm,site,2.2265782862907044,21693,4
+cell_type,CD14+ Mono,ilisi_median_norm_perm,site,0.4088594287635681,21693,4
+cell_type,CD14+ Mono,kbet_acceptance_perm,site,0.9512285068916241,21693,4
+cell_type,CD14+ Mono,batch_asw_perm,site,0.9869552631912611,21693,4
+cell_type,CD14+ Mono,ilisi_median,sample,1.6950896266443378,21693,12
+cell_type,CD14+ Mono,ilisi_median_norm,sample,0.06318996605857617,21693,12
+cell_type,CD14+ Mono,kbet_acceptance,sample,0.009772737749504448,21693,12
+cell_type,CD14+ Mono,batch_asw,sample,0.9486630039014826,21693,12
+cell_type,CD14+ Mono,ilisi_median_perm,sample,4.700281196881315,21693,12
+cell_type,CD14+ Mono,ilisi_median_norm_perm,sample,0.3363891997164832,21693,12
+cell_type,CD14+ Mono,kbet_acceptance_perm,sample,0.9367076937260868,21693,12
+cell_type,CD14+ Mono,batch_asw_perm,sample,0.979149649428834,21693,12
+cell_type,CD16+ Mono,ilisi_median,donor,2.105444898325856,2635,9
+cell_type,CD16+ Mono,ilisi_median_norm,donor,0.13818061229073197,2635,9
+cell_type,CD16+ Mono,kbet_acceptance,donor,0.047058823529411764,2635,9
+cell_type,CD16+ Mono,batch_asw,donor,0.9327011164666564,2635,9
+cell_type,CD16+ Mono,ilisi_median_perm,donor,3.9497699632388183,2635,9
+cell_type,CD16+ Mono,ilisi_median_norm_perm,donor,0.3687212454048523,2635,9
+cell_type,CD16+ Mono,kbet_acceptance_perm,donor,0.9252371916508539,2635,9
+cell_type,CD16+ Mono,batch_asw_perm,donor,0.9612878472160559,2635,9
+cell_type,CD16+ Mono,ilisi_median,site,1.5865741417845485,2635,4
+cell_type,CD16+ Mono,ilisi_median_norm,site,0.19552471392818283,2635,4
+cell_type,CD16+ Mono,kbet_acceptance,site,0.09715370018975332,2635,4
+cell_type,CD16+ Mono,batch_asw,site,0.9336646406072016,2635,4
+cell_type,CD16+ Mono,ilisi_median_perm,site,2.3849002544304927,2635,4
+cell_type,CD16+ Mono,ilisi_median_norm_perm,site,0.46163341814349756,2635,4
+cell_type,CD16+ Mono,kbet_acceptance_perm,site,0.9518026565464895,2635,4
+cell_type,CD16+ Mono,batch_asw_perm,site,0.9938673948084762,2635,4
+cell_type,CD16+ Mono,ilisi_median,sample,2.288727676805277,2635,12
+cell_type,CD16+ Mono,ilisi_median_norm,sample,0.11715706152775245,2635,12
+cell_type,CD16+ Mono,kbet_acceptance,sample,0.025426944971537004,2635,12
+cell_type,CD16+ Mono,batch_asw,sample,0.9466920263489264,2635,12
+cell_type,CD16+ Mono,ilisi_median_perm,sample,4.846742767772158,2635,12
+cell_type,CD16+ Mono,ilisi_median_norm_perm,sample,0.3497038879792871,2635,12
+cell_type,CD16+ Mono,kbet_acceptance_perm,sample,0.9267552182163188,2635,12
+cell_type,CD16+ Mono,batch_asw_perm,sample,0.9724861223771397,2635,12
+cell_type,Erythroblast,ilisi_median,donor,2.1827593749007463,4039,9
+cell_type,Erythroblast,ilisi_median_norm,donor,0.1478449218625933,4039,9
+cell_type,Erythroblast,kbet_acceptance,donor,0.26145085417182473,4039,9
+cell_type,Erythroblast,batch_asw,donor,0.8974525152995185,4039,9
+cell_type,Erythroblast,ilisi_median_perm,donor,2.7512386887610716,4039,9
+cell_type,Erythroblast,ilisi_median_norm_perm,donor,0.21890483609513395,4039,9
+cell_type,Erythroblast,kbet_acceptance_perm,donor,0.963357266650161,4039,9
+cell_type,Erythroblast,batch_asw_perm,donor,0.961684172566429,4039,9
+cell_type,Erythroblast,ilisi_median,site,1.9286783499253024,4039,4
+cell_type,Erythroblast,ilisi_median_norm,site,0.3095594499751008,4039,4
+cell_type,Erythroblast,kbet_acceptance,site,0.15053230997771724,4039,4
+cell_type,Erythroblast,batch_asw,site,0.9043977605449287,4039,4
+cell_type,Erythroblast,ilisi_median_perm,site,2.6297904247066386,4039,4
+cell_type,Erythroblast,ilisi_median_norm_perm,site,0.5432634749022128,4039,4
+cell_type,Erythroblast,kbet_acceptance_perm,site,0.9489972765536023,4039,4
+cell_type,Erythroblast,batch_asw_perm,site,0.9828387114342454,4039,4
+cell_type,Erythroblast,ilisi_median,sample,2.886880645883495,4039,12
+cell_type,Erythroblast,ilisi_median_norm,sample,0.1715346041712268,4039,12
+cell_type,Erythroblast,kbet_acceptance,sample,0.055954444169348846,4039,12
+cell_type,Erythroblast,batch_asw,sample,0.8829414412427198,4039,12
+cell_type,Erythroblast,ilisi_median_perm,sample,4.797727483281858,4039,12
+cell_type,Erythroblast,ilisi_median_norm_perm,sample,0.34524795302562344,4039,12
+cell_type,Erythroblast,kbet_acceptance_perm,sample,0.937360732854667,4039,12
+cell_type,Erythroblast,batch_asw_perm,sample,0.9606902677657669,4039,12
+cell_type,G/M prog,ilisi_median,donor,2.6566251936881455,1881,9
+cell_type,G/M prog,ilisi_median_norm,donor,0.2070781492110182,1881,9
+cell_type,G/M prog,kbet_acceptance,donor,0.05954279638490165,1881,9
+cell_type,G/M prog,batch_asw,donor,0.9187281416896982,1881,9
+cell_type,G/M prog,ilisi_median_perm,donor,4.087420848596171,1881,9
+cell_type,G/M prog,ilisi_median_norm_perm,donor,0.38592760607452137,1881,9
+cell_type,G/M prog,kbet_acceptance_perm,donor,0.9383306751727805,1881,9
+cell_type,G/M prog,batch_asw_perm,donor,0.9733885984116899,1881,9
+cell_type,G/M prog,ilisi_median,site,2.009287928051125,1881,4
+cell_type,G/M prog,ilisi_median_norm,site,0.33642930935037496,1881,4
+cell_type,G/M prog,kbet_acceptance,site,0.19085592769803297,1881,4
+cell_type,G/M prog,batch_asw,site,0.9472343431660757,1881,4
+cell_type,G/M prog,ilisi_median_perm,site,2.5765117006671203,1881,4
+cell_type,G/M prog,ilisi_median_norm_perm,site,0.5255039002223735,1881,4
+cell_type,G/M prog,kbet_acceptance_perm,site,0.9516214779372674,1881,4
+cell_type,G/M prog,batch_asw_perm,site,0.9835785174614221,1881,4
+cell_type,G/M prog,ilisi_median,sample,2.7885396600684222,1881,12
+cell_type,G/M prog,ilisi_median_norm,sample,0.16259451455167476,1881,12
+cell_type,G/M prog,kbet_acceptance,sample,0.044657097288676235,1881,12
+cell_type,G/M prog,batch_asw,sample,0.911840457945688,1881,12
+cell_type,G/M prog,ilisi_median_perm,sample,5.013222885314575,1881,12
+cell_type,G/M prog,ilisi_median_norm_perm,sample,0.36483844411950683,1881,12
+cell_type,G/M prog,kbet_acceptance_perm,sample,0.9707602339181286,1881,12
+cell_type,G/M prog,batch_asw_perm,sample,0.9628031734828519,1881,12
+cell_type,HSC,ilisi_median,donor,2.3592272309969005,1703,9
+cell_type,HSC,ilisi_median_norm,donor,0.16990340387461256,1703,9
+cell_type,HSC,kbet_acceptance,donor,0.026423957721667644,1703,9
+cell_type,HSC,batch_asw,donor,0.8747139316550281,1703,9
+cell_type,HSC,ilisi_median_perm,donor,4.552522176205261,1703,9
+cell_type,HSC,ilisi_median_norm_perm,donor,0.4440652720256576,1703,9
+cell_type,HSC,kbet_acceptance_perm,donor,0.9406928948913682,1703,9
+cell_type,HSC,batch_asw_perm,donor,0.9638615682811584,1703,9
+cell_type,HSC,ilisi_median,site,1.8248830397817517,1703,4
+cell_type,HSC,ilisi_median_norm,site,0.2749610132605839,1703,4
+cell_type,HSC,kbet_acceptance,site,0.10745742806811509,1703,4
+cell_type,HSC,batch_asw,site,0.9369488589793321,1703,4
+cell_type,HSC,ilisi_median_perm,site,2.9294492419780527,1703,4
+cell_type,HSC,ilisi_median_norm_perm,site,0.6431497473260176,1703,4
+cell_type,HSC,kbet_acceptance_perm,site,0.9213153258954786,1703,4
+cell_type,HSC,batch_asw_perm,site,0.9843007207947237,1703,4
+cell_type,HSC,ilisi_median,sample,2.5854659813219705,1703,12
+cell_type,HSC,ilisi_median_norm,sample,0.14413327102927004,1703,12
+cell_type,HSC,kbet_acceptance,sample,0.008220786846741044,1703,12
+cell_type,HSC,batch_asw,sample,0.8872324537297662,1703,12
+cell_type,HSC,ilisi_median_perm,sample,5.584364799226593,1703,12
+cell_type,HSC,ilisi_median_norm_perm,sample,0.41676043629332665,1703,12
+cell_type,HSC,kbet_acceptance_perm,sample,0.9718144450968879,1703,12
+cell_type,HSC,batch_asw_perm,sample,0.9494427490463099,1703,12
+cell_type,Lymph prog,ilisi_median,donor,3.1417217917809297,1681,9
+cell_type,Lymph prog,ilisi_median_norm,donor,0.2677152239726162,1681,9
+cell_type,Lymph prog,kbet_acceptance,donor,0.2296252230814991,1681,9
+cell_type,Lymph prog,batch_asw,donor,0.8873411967486369,1681,9
+cell_type,Lymph prog,ilisi_median_perm,donor,4.557268551286671,1681,9
+cell_type,Lymph prog,ilisi_median_norm_perm,donor,0.4446585689108339,1681,9
+cell_type,Lymph prog,kbet_acceptance_perm,donor,0.9690660321237359,1681,9
+cell_type,Lymph prog,batch_asw_perm,donor,0.9546363834862116,1681,9
+cell_type,Lymph prog,ilisi_median,site,2.0581276773461092,1681,4
+cell_type,Lymph prog,ilisi_median_norm,site,0.3527092257820364,1681,4
+cell_type,Lymph prog,kbet_acceptance,site,0.23914336704342654,1681,4
+cell_type,Lymph prog,batch_asw,site,0.9539371384430053,1681,4
+cell_type,Lymph prog,ilisi_median_perm,site,2.9545282252833935,1681,4
+cell_type,Lymph prog,ilisi_median_norm_perm,site,0.6515094084277978,1681,4
+cell_type,Lymph prog,kbet_acceptance_perm,site,0.9762046400951815,1681,4
+cell_type,Lymph prog,batch_asw_perm,site,0.983276591577267,1681,4
+cell_type,Lymph prog,ilisi_median,sample,3.49508619794845,1681,12
+cell_type,Lymph prog,ilisi_median_norm,sample,0.22682601799531366,1681,12
+cell_type,Lymph prog,kbet_acceptance,sample,0.16121356335514575,1681,12
+cell_type,Lymph prog,batch_asw,sample,0.8896285346910047,1681,12
+cell_type,Lymph prog,ilisi_median_perm,sample,5.798827868758724,1681,12
+cell_type,Lymph prog,ilisi_median_norm_perm,sample,0.4362570789780658,1681,12
+cell_type,Lymph prog,kbet_acceptance_perm,sample,0.9470553242117787,1681,12
+cell_type,Lymph prog,batch_asw_perm,sample,0.9343903359174219,1681,12
+cell_type,MK/E prog,ilisi_median,donor,2.524547486740726,690,9
+cell_type,MK/E prog,ilisi_median_norm,donor,0.19056843584259076,690,9
+cell_type,MK/E prog,kbet_acceptance,donor,0.1072463768115942,690,9
+cell_type,MK/E prog,batch_asw,donor,0.8652088146630041,690,9
+cell_type,MK/E prog,ilisi_median_perm,donor,4.20996834172744,690,9
+cell_type,MK/E prog,ilisi_median_norm_perm,donor,0.40124604271593,690,9
+cell_type,MK/E prog,kbet_acceptance_perm,donor,0.9,690,9
+cell_type,MK/E prog,batch_asw_perm,donor,0.8846465999848525,690,9
+cell_type,MK/E prog,ilisi_median,site,1.9519925280721253,690,4
+cell_type,MK/E prog,ilisi_median_norm,site,0.31733084269070844,690,4
+cell_type,MK/E prog,kbet_acceptance,site,0.26666666666666666,690,4
+cell_type,MK/E prog,batch_asw,site,0.9084591061497743,690,4
+cell_type,MK/E prog,ilisi_median_perm,site,2.650095646575922,690,4
+cell_type,MK/E prog,ilisi_median_norm_perm,site,0.550031882191974,690,4
+cell_type,MK/E prog,kbet_acceptance_perm,site,0.991304347826087,690,4
+cell_type,MK/E prog,batch_asw_perm,site,0.97969399816876,690,4
+cell_type,MK/E prog,ilisi_median,sample,2.7280692905017494,690,12
+cell_type,MK/E prog,ilisi_median_norm,sample,0.15709720822743176,690,12
+cell_type,MK/E prog,kbet_acceptance,sample,0.07681159420289856,690,12
+cell_type,MK/E prog,batch_asw,sample,0.8664908407501024,690,12
+cell_type,MK/E prog,ilisi_median_perm,sample,4.8566126708003825,690,12
+cell_type,MK/E prog,ilisi_median_norm_perm,sample,0.3506011518909439,690,12
+cell_type,MK/E prog,kbet_acceptance_perm,sample,0.9971014492753624,690,12
+cell_type,MK/E prog,batch_asw_perm,sample,0.9053716151274659,690,12
+cell_type,Naive CD20+ B IGKC+,ilisi_median,donor,1.8648152780113254,3990,9
+cell_type,Naive CD20+ B IGKC+,ilisi_median_norm,donor,0.10810190975141568,3990,9
+cell_type,Naive CD20+ B IGKC+,kbet_acceptance,donor,0.02481203007518797,3990,9
+cell_type,Naive CD20+ B IGKC+,batch_asw,donor,0.9126727918335491,3990,9
+cell_type,Naive CD20+ B IGKC+,ilisi_median_perm,donor,3.524268238056645,3990,9
+cell_type,Naive CD20+ B IGKC+,ilisi_median_norm_perm,donor,0.3155335297570806,3990,9
+cell_type,Naive CD20+ B IGKC+,kbet_acceptance_perm,donor,0.9473684210526315,3990,9
+cell_type,Naive CD20+ B IGKC+,batch_asw_perm,donor,0.9675922622605104,3990,9
+cell_type,Naive CD20+ B IGKC+,ilisi_median,site,1.2820117590962519,3990,4
+cell_type,Naive CD20+ B IGKC+,ilisi_median_norm,site,0.09400391969875062,3990,4
+cell_type,Naive CD20+ B IGKC+,kbet_acceptance,site,0.021052631578947368,3990,4
+cell_type,Naive CD20+ B IGKC+,batch_asw,site,0.9082901106793486,3990,4
+cell_type,Naive CD20+ B IGKC+,ilisi_median_perm,site,3.0489936143707643,3990,4
+cell_type,Naive CD20+ B IGKC+,ilisi_median_norm_perm,site,0.6829978714569215,3990,4
+cell_type,Naive CD20+ B IGKC+,kbet_acceptance_perm,site,0.949874686716792,3990,4
+cell_type,Naive CD20+ B IGKC+,batch_asw_perm,site,0.9940034328450499,3990,4
+cell_type,Naive CD20+ B IGKC+,ilisi_median,sample,2.0265151975164946,3990,12
+cell_type,Naive CD20+ B IGKC+,ilisi_median_norm,sample,0.09331956341059042,3990,12
+cell_type,Naive CD20+ B IGKC+,kbet_acceptance,sample,0.0037593984962406013,3990,12
+cell_type,Naive CD20+ B IGKC+,batch_asw,sample,0.9416688086917044,3990,12
+cell_type,Naive CD20+ B IGKC+,ilisi_median_perm,sample,5.571093149352808,3990,12
+cell_type,Naive CD20+ B IGKC+,ilisi_median_norm_perm,sample,0.41555392266843705,3990,12
+cell_type,Naive CD20+ B IGKC+,kbet_acceptance_perm,sample,0.96265664160401,3990,12
+cell_type,Naive CD20+ B IGKC+,batch_asw_perm,sample,0.9749581180726504,3990,12
+cell_type,Naive CD20+ B IGKC-,ilisi_median,donor,1.8500831932819075,1979,8
+cell_type,Naive CD20+ B IGKC-,ilisi_median_norm,donor,0.12144045618312964,1979,8
+cell_type,Naive CD20+ B IGKC-,kbet_acceptance,donor,0.03739262253663466,1979,8
+cell_type,Naive CD20+ B IGKC-,batch_asw,donor,0.9229175972421683,1979,8
+cell_type,Naive CD20+ B IGKC-,ilisi_median_perm,donor,3.017552889629391,1979,8
+cell_type,Naive CD20+ B IGKC-,ilisi_median_norm_perm,donor,0.2882218413756273,1979,8
+cell_type,Naive CD20+ B IGKC-,kbet_acceptance_perm,donor,0.9413845376452754,1979,8
+cell_type,Naive CD20+ B IGKC-,batch_asw_perm,donor,0.9776061573922189,1979,8
+cell_type,Naive CD20+ B IGKC-,ilisi_median,site,1.2437472425522524,1979,4
+cell_type,Naive CD20+ B IGKC-,ilisi_median_norm,site,0.08124908085075082,1979,4
+cell_type,Naive CD20+ B IGKC-,kbet_acceptance,site,0.01414855987872663,1979,4
+cell_type,Naive CD20+ B IGKC-,batch_asw,site,0.9145546408135283,1979,4
+cell_type,Naive CD20+ B IGKC-,ilisi_median_perm,site,3.077641011469227,1979,4
+cell_type,Naive CD20+ B IGKC-,ilisi_median_norm_perm,site,0.6925470038230758,1979,4
+cell_type,Naive CD20+ B IGKC-,kbet_acceptance_perm,site,0.9555330975240021,1979,4
+cell_type,Naive CD20+ B IGKC-,batch_asw_perm,site,0.9909678292155891,1979,4
+cell_type,Naive CD20+ B IGKC-,ilisi_median,sample,2.0480173746571007,1979,11
+cell_type,Naive CD20+ B IGKC-,ilisi_median_norm,sample,0.10480173746571006,1979,11
+cell_type,Naive CD20+ B IGKC-,kbet_acceptance,sample,0.003031834259727135,1979,11
+cell_type,Naive CD20+ B IGKC-,batch_asw,sample,0.9525199932037719,1979,11
+cell_type,Naive CD20+ B IGKC-,ilisi_median_perm,sample,5.338914345257128,1979,11
+cell_type,Naive CD20+ B IGKC-,ilisi_median_norm_perm,sample,0.43389143452571277,1979,11
+cell_type,Naive CD20+ B IGKC-,kbet_acceptance_perm,sample,0.9610914603335018,1979,11
+cell_type,Naive CD20+ B IGKC-,batch_asw_perm,sample,0.9776406493832196,1979,11
+cell_type,Normoblast,ilisi_median,donor,2.378061292777048,1435,9
+cell_type,Normoblast,ilisi_median_norm,donor,0.17225766159713102,1435,9
+cell_type,Normoblast,kbet_acceptance,donor,0.36655052264808363,1435,9
+cell_type,Normoblast,batch_asw,donor,0.9194103464310404,1435,9
+cell_type,Normoblast,ilisi_median_perm,donor,2.86315538601308,1435,9
+cell_type,Normoblast,ilisi_median_norm_perm,donor,0.232894423251635,1435,9
+cell_type,Normoblast,kbet_acceptance_perm,donor,0.9560975609756097,1435,9
+cell_type,Normoblast,batch_asw_perm,donor,0.9196165603458186,1435,9
+cell_type,Normoblast,ilisi_median,site,2.038358666232923,1435,4
+cell_type,Normoblast,ilisi_median_norm,site,0.3461195554109744,1435,4
+cell_type,Normoblast,kbet_acceptance,site,0.07247386759581882,1435,4
+cell_type,Normoblast,batch_asw,site,0.9370363068497856,1435,4
+cell_type,Normoblast,ilisi_median_perm,site,3.0701461346135406,1435,4
+cell_type,Normoblast,ilisi_median_norm_perm,site,0.6900487115378469,1435,4
+cell_type,Normoblast,kbet_acceptance_perm,site,0.9637630662020906,1435,4
+cell_type,Normoblast,batch_asw_perm,site,0.9823826431959354,1435,4
+cell_type,Normoblast,ilisi_median,sample,3.336824147093663,1435,12
+cell_type,Normoblast,ilisi_median_norm,sample,0.21243855882669663,1435,12
+cell_type,Normoblast,kbet_acceptance,sample,0.04320557491289199,1435,12
+cell_type,Normoblast,batch_asw,sample,0.8961146781668785,1435,12
+cell_type,Normoblast,ilisi_median_perm,sample,5.537320760180859,1435,12
+cell_type,Normoblast,ilisi_median_norm_perm,sample,0.41248370547098717,1435,12
+cell_type,Normoblast,kbet_acceptance_perm,sample,0.9658536585365853,1435,12
+cell_type,Normoblast,batch_asw_perm,sample,0.9395257582991816,1435,12
+cell_type,Proerythroblast,ilisi_median,donor,2.1129420021635825,1512,8
+cell_type,Proerythroblast,ilisi_median_norm,donor,0.1589917145947975,1512,8
+cell_type,Proerythroblast,kbet_acceptance,donor,0.07275132275132275,1512,8
+cell_type,Proerythroblast,batch_asw,donor,0.8466441759115602,1512,8
+cell_type,Proerythroblast,ilisi_median_perm,donor,3.947190585637017,1512,8
+cell_type,Proerythroblast,ilisi_median_norm_perm,donor,0.42102722651957386,1512,8
+cell_type,Proerythroblast,kbet_acceptance_perm,donor,0.9431216931216931,1512,8
+cell_type,Proerythroblast,batch_asw_perm,donor,0.9288693642968617,1512,8
+cell_type,Proerythroblast,ilisi_median,site,1.3878649880584224,1512,4
+cell_type,Proerythroblast,ilisi_median_norm,site,0.12928832935280746,1512,4
+cell_type,Proerythroblast,kbet_acceptance,site,0.07936507936507936,1512,4
+cell_type,Proerythroblast,batch_asw,site,0.8870063173185057,1512,4
+cell_type,Proerythroblast,ilisi_median_perm,site,2.5391259386558858,1512,4
+cell_type,Proerythroblast,ilisi_median_norm_perm,site,0.513041979551962,1512,4
+cell_type,Proerythroblast,kbet_acceptance_perm,site,0.9768518518518519,1512,4
+cell_type,Proerythroblast,batch_asw_perm,site,0.942437564414274,1512,4
+cell_type,Proerythroblast,ilisi_median,sample,2.2533326565623524,1512,11
+cell_type,Proerythroblast,ilisi_median_norm,sample,0.12533326565623523,1512,11
+cell_type,Proerythroblast,kbet_acceptance,sample,0.01984126984126984,1512,11
+cell_type,Proerythroblast,batch_asw,sample,0.8977358887802286,1512,11
+cell_type,Proerythroblast,ilisi_median_perm,sample,5.341931889207636,1512,11
+cell_type,Proerythroblast,ilisi_median_norm_perm,sample,0.43419318892076364,1512,11
+cell_type,Proerythroblast,kbet_acceptance_perm,sample,0.9563492063492064,1512,11
+cell_type,Proerythroblast,batch_asw_perm,sample,0.9507744374227243,1512,11
+cell_type,Reticulocyte,ilisi_median,donor,2.374092141325663,4272,9
+cell_type,Reticulocyte,ilisi_median_norm,donor,0.17176151766570785,4272,9
+cell_type,Reticulocyte,kbet_acceptance,donor,0.062265917602996254,4272,9
+cell_type,Reticulocyte,batch_asw,donor,0.8611566359425041,4272,9
+cell_type,Reticulocyte,ilisi_median_perm,donor,3.627910715227569,4272,9
+cell_type,Reticulocyte,ilisi_median_norm_perm,donor,0.32848883940344614,4272,9
+cell_type,Reticulocyte,kbet_acceptance_perm,donor,0.9375,4272,9
+cell_type,Reticulocyte,batch_asw_perm,donor,0.9638189908346357,4272,9
+cell_type,Reticulocyte,ilisi_median,site,1.7309698766254829,4272,4
+cell_type,Reticulocyte,ilisi_median_norm,site,0.24365662554182763,4272,4
+cell_type,Reticulocyte,kbet_acceptance,site,0.0650749063670412,4272,4
+cell_type,Reticulocyte,batch_asw,site,0.9246891937111625,4272,4
+cell_type,Reticulocyte,ilisi_median_perm,site,2.8483262770713775,4272,4
+cell_type,Reticulocyte,ilisi_median_norm_perm,site,0.6161087590237925,4272,4
+cell_type,Reticulocyte,kbet_acceptance_perm,site,0.966058052434457,4272,4
+cell_type,Reticulocyte,batch_asw_perm,site,0.9859407653794854,4272,4
+cell_type,Reticulocyte,ilisi_median,sample,2.7650018524422464,4272,12
+cell_type,Reticulocyte,ilisi_median_norm,sample,0.16045471385838603,4272,12
+cell_type,Reticulocyte,kbet_acceptance,sample,0.015917602996254682,4272,12
+cell_type,Reticulocyte,batch_asw,sample,0.900250553344628,4272,12
+cell_type,Reticulocyte,ilisi_median_perm,sample,5.4304716238679305,4272,12
+cell_type,Reticulocyte,ilisi_median_norm_perm,sample,0.4027701476243573,4272,12
+cell_type,Reticulocyte,kbet_acceptance_perm,sample,0.9335205992509363,4272,12
+cell_type,Reticulocyte,batch_asw_perm,sample,0.9600979623550773,4272,12
+cell_type,Transitional B,ilisi_median,donor,2.600608566771588,1575,9
+cell_type,Transitional B,ilisi_median_norm,donor,0.20007607084644852,1575,9
+cell_type,Transitional B,kbet_acceptance,donor,0.027301587301587302,1575,9
+cell_type,Transitional B,batch_asw,donor,0.9412167162359123,1575,9
+cell_type,Transitional B,ilisi_median_perm,donor,4.938286305162452,1575,9
+cell_type,Transitional B,ilisi_median_norm_perm,donor,0.49228578814530655,1575,9
+cell_type,Transitional B,kbet_acceptance_perm,donor,0.9403174603174603,1575,9
+cell_type,Transitional B,batch_asw_perm,donor,0.957176612710807,1575,9
+cell_type,Transitional B,ilisi_median,site,1.58545308694745,1575,4
+cell_type,Transitional B,ilisi_median_norm,site,0.1951510289824833,1575,4
+cell_type,Transitional B,kbet_acceptance,site,0.04317460317460318,1575,4
+cell_type,Transitional B,batch_asw,site,0.9409268809890766,1575,4
+cell_type,Transitional B,ilisi_median_perm,site,3.1044733226377015,1575,4
+cell_type,Transitional B,ilisi_median_norm_perm,site,0.7014911075459005,1575,4
+cell_type,Transitional B,kbet_acceptance_perm,site,0.9447619047619048,1575,4
+cell_type,Transitional B,batch_asw_perm,site,0.9886253858562047,1575,4
+cell_type,Transitional B,ilisi_median,sample,2.6487399768319846,1575,12
+cell_type,Transitional B,ilisi_median_norm,sample,0.14988545243927132,1575,12
+cell_type,Transitional B,kbet_acceptance,sample,0.018412698412698412,1575,12
+cell_type,Transitional B,batch_asw,sample,0.9532601696328005,1575,12
+cell_type,Transitional B,ilisi_median_perm,sample,5.469912854437188,1575,12
+cell_type,Transitional B,ilisi_median_norm_perm,sample,0.4063557140397444,1575,12
+cell_type,Transitional B,kbet_acceptance_perm,sample,0.9746031746031746,1575,12
+cell_type,Transitional B,batch_asw_perm,sample,0.9735102939550162,1575,12
+donor1_cell_type,CD14+ Mono,ilisi_median,site,1.3121167837790821,7244,4
+donor1_cell_type,CD14+ Mono,ilisi_median_norm,site,0.10403892792636071,7244,4
+donor1_cell_type,CD14+ Mono,kbet_acceptance,site,0.03257868580894534,7244,4
+donor1_cell_type,CD14+ Mono,batch_asw,site,0.937005032031374,7244,4
+donor1_cell_type,CD14+ Mono,ilisi_median_perm,site,2.494923025212437,7244,4
+donor1_cell_type,CD14+ Mono,ilisi_median_norm_perm,site,0.49830767507081236,7244,4
+donor1_cell_type,CD14+ Mono,kbet_acceptance_perm,site,0.9525124240750966,7244,4
+donor1_cell_type,CD14+ Mono,batch_asw_perm,site,0.9935796247562293,7244,4
+donor1_cell_type,CD16+ Mono,ilisi_median,site,1.3973478015734018,865,4
+donor1_cell_type,CD16+ Mono,ilisi_median_norm,site,0.13244926719113392,865,4
+donor1_cell_type,CD16+ Mono,kbet_acceptance,site,0.12947976878612716,865,4
+donor1_cell_type,CD16+ Mono,batch_asw,site,0.932375244167017,865,4
+donor1_cell_type,CD16+ Mono,ilisi_median_perm,site,2.3106438329478234,865,4
+donor1_cell_type,CD16+ Mono,ilisi_median_norm_perm,site,0.4368812776492745,865,4
+donor1_cell_type,CD16+ Mono,kbet_acceptance_perm,site,0.9514450867052023,865,4
+donor1_cell_type,CD16+ Mono,batch_asw_perm,site,0.9789095796618015,865,4
+donor1_cell_type,Erythroblast,ilisi_median,site,1.5665186300413214,2202,4
+donor1_cell_type,Erythroblast,ilisi_median_norm,site,0.18883954334710715,2202,4
+donor1_cell_type,Erythroblast,kbet_acceptance,site,0.10036330608537693,2202,4
+donor1_cell_type,Erythroblast,batch_asw,site,0.9067595830144927,2202,4
+donor1_cell_type,Erythroblast,ilisi_median_perm,site,2.3844196974100678,2202,4
+donor1_cell_type,Erythroblast,ilisi_median_norm_perm,site,0.4614732324700226,2202,4
+donor1_cell_type,Erythroblast,kbet_acceptance_perm,site,0.971843778383288,2202,4
+donor1_cell_type,Erythroblast,batch_asw_perm,site,0.979890232356884,2202,4
+donor1_cell_type,G/M prog,ilisi_median,site,1.4944244200223626,517,4
+donor1_cell_type,G/M prog,ilisi_median_norm,site,0.16480814000745422,517,4
+donor1_cell_type,G/M prog,kbet_acceptance,site,0.13926499032882012,517,4
+donor1_cell_type,G/M prog,batch_asw,site,0.8719110314284615,517,4
+donor1_cell_type,G/M prog,ilisi_median_perm,site,2.186379200410661,517,4
+donor1_cell_type,G/M prog,ilisi_median_norm_perm,site,0.39545973347022034,517,4
+donor1_cell_type,G/M prog,kbet_acceptance_perm,site,0.9825918762088974,517,4
+donor1_cell_type,G/M prog,batch_asw_perm,site,0.9724011215065318,517,4
+donor1_cell_type,HSC,ilisi_median,site,1.8953953340696044,455,4
+donor1_cell_type,HSC,ilisi_median_norm,site,0.2984651113565348,455,4
+donor1_cell_type,HSC,kbet_acceptance,site,0.09010989010989011,455,4
+donor1_cell_type,HSC,batch_asw,site,0.9300237406942816,455,4
+donor1_cell_type,HSC,ilisi_median_perm,site,3.128958648505888,455,4
+donor1_cell_type,HSC,ilisi_median_norm_perm,site,0.709652882835296,455,4
+donor1_cell_type,HSC,kbet_acceptance_perm,site,0.9956043956043956,455,4
+donor1_cell_type,HSC,batch_asw_perm,site,0.9774028663443103,455,4
+donor1_cell_type,Lymph prog,ilisi_median,site,2.208427493145925,449,4
+donor1_cell_type,Lymph prog,ilisi_median_norm,site,0.40280916438197495,449,4
+donor1_cell_type,Lymph prog,kbet_acceptance,site,0.1870824053452116,449,4
+donor1_cell_type,Lymph prog,batch_asw,site,0.9333249532301555,449,4
+donor1_cell_type,Lymph prog,ilisi_median_perm,site,3.184963982946344,449,4
+donor1_cell_type,Lymph prog,ilisi_median_norm_perm,site,0.7283213276487813,449,4
+donor1_cell_type,Lymph prog,kbet_acceptance_perm,site,0.9799554565701559,449,4
+donor1_cell_type,Lymph prog,batch_asw_perm,site,0.9654526495698259,449,4
+donor1_cell_type,MK/E prog,ilisi_median,site,2.2606152825615413,169,4
+donor1_cell_type,MK/E prog,ilisi_median_norm,site,0.42020509418718044,169,4
+donor1_cell_type,MK/E prog,kbet_acceptance,site,0.35502958579881655,169,4
+donor1_cell_type,MK/E prog,batch_asw,site,0.879341750497458,169,4
+donor1_cell_type,MK/E prog,ilisi_median_perm,site,2.8058063412616474,169,4
+donor1_cell_type,MK/E prog,ilisi_median_norm_perm,site,0.6019354470872158,169,4
+donor1_cell_type,MK/E prog,kbet_acceptance_perm,site,0.9940828402366864,169,4
+donor1_cell_type,MK/E prog,batch_asw_perm,site,0.9490421895052529,169,4
+donor1_cell_type,Naive CD20+ B IGKC+,ilisi_median,site,1.1984322132989595,1663,4
+donor1_cell_type,Naive CD20+ B IGKC+,ilisi_median_norm,site,0.06614407109965319,1663,4
+donor1_cell_type,Naive CD20+ B IGKC+,kbet_acceptance,site,0.00661455201443175,1663,4
+donor1_cell_type,Naive CD20+ B IGKC+,batch_asw,site,0.885940389663977,1663,4
+donor1_cell_type,Naive CD20+ B IGKC+,ilisi_median_perm,site,3.166025913580075,1663,4
+donor1_cell_type,Naive CD20+ B IGKC+,ilisi_median_norm_perm,site,0.722008637860025,1663,4
+donor1_cell_type,Naive CD20+ B IGKC+,kbet_acceptance_perm,site,0.9657245941070355,1663,4
+donor1_cell_type,Naive CD20+ B IGKC+,batch_asw_perm,site,0.9916667403507462,1663,4
+donor1_cell_type,Naive CD20+ B IGKC-,ilisi_median,site,1.1761746861200577,945,4
+donor1_cell_type,Naive CD20+ B IGKC-,ilisi_median_norm,site,0.05872489537335257,945,4
+donor1_cell_type,Naive CD20+ B IGKC-,kbet_acceptance,site,0.01798941798941799,945,4
+donor1_cell_type,Naive CD20+ B IGKC-,batch_asw,site,0.8900124515616085,945,4
+donor1_cell_type,Naive CD20+ B IGKC-,ilisi_median_perm,site,2.8085795228092802,945,4
+donor1_cell_type,Naive CD20+ B IGKC-,ilisi_median_norm_perm,site,0.6028598409364267,945,4
+donor1_cell_type,Naive CD20+ B IGKC-,kbet_acceptance_perm,site,0.9841269841269841,945,4
+donor1_cell_type,Naive CD20+ B IGKC-,batch_asw_perm,site,0.9933338688439929,945,4
+donor1_cell_type,Normoblast,ilisi_median,site,1.6529085293362598,774,4
+donor1_cell_type,Normoblast,ilisi_median_norm,site,0.2176361764454199,774,4
+donor1_cell_type,Normoblast,kbet_acceptance,site,0.014211886304909561,774,4
+donor1_cell_type,Normoblast,batch_asw,site,0.9127387190426247,774,4
+donor1_cell_type,Normoblast,ilisi_median_perm,site,2.9897068640082143,774,4
+donor1_cell_type,Normoblast,ilisi_median_norm_perm,site,0.6632356213360714,774,4
+donor1_cell_type,Normoblast,kbet_acceptance_perm,site,0.9806201550387597,774,4
+donor1_cell_type,Normoblast,batch_asw_perm,site,0.9774254983362738,774,4
+donor1_cell_type,Proerythroblast,ilisi_median,site,1.7550743211063087,435,4
+donor1_cell_type,Proerythroblast,ilisi_median_norm,site,0.25169144036876956,435,4
+donor1_cell_type,Proerythroblast,kbet_acceptance,site,0.011494252873563218,435,4
+donor1_cell_type,Proerythroblast,batch_asw,site,0.8140493169904572,435,4
+donor1_cell_type,Proerythroblast,ilisi_median_perm,site,3.481118610922575,435,4
+donor1_cell_type,Proerythroblast,ilisi_median_norm_perm,site,0.8270395369741917,435,4
+donor1_cell_type,Proerythroblast,kbet_acceptance_perm,site,0.993103448275862,435,4
+donor1_cell_type,Proerythroblast,batch_asw_perm,site,0.9707426342889349,435,4
+donor1_cell_type,Reticulocyte,ilisi_median,site,1.5354500728727212,1656,4
+donor1_cell_type,Reticulocyte,ilisi_median_norm,site,0.1784833576242404,1656,4
+donor1_cell_type,Reticulocyte,kbet_acceptance,site,0.06099033816425121,1656,4
+donor1_cell_type,Reticulocyte,batch_asw,site,0.9231300532744904,1656,4
+donor1_cell_type,Reticulocyte,ilisi_median_perm,site,2.9403792967972517,1656,4
+donor1_cell_type,Reticulocyte,ilisi_median_norm_perm,site,0.6467930989324172,1656,4
+donor1_cell_type,Reticulocyte,kbet_acceptance_perm,site,0.9692028985507246,1656,4
+donor1_cell_type,Reticulocyte,batch_asw_perm,site,0.9839426066166986,1656,4
+donor1_cell_type,Transitional B,ilisi_median,site,1.4143937416450525,274,4
+donor1_cell_type,Transitional B,ilisi_median_norm,site,0.1381312472150175,274,4
+donor1_cell_type,Transitional B,kbet_acceptance,site,0.0036496350364963502,274,4
+donor1_cell_type,Transitional B,batch_asw,site,0.8925823162799821,274,4
+donor1_cell_type,Transitional B,ilisi_median_perm,site,3.368384125241783,274,4
+donor1_cell_type,Transitional B,ilisi_median_norm_perm,site,0.7894613750805943,274,4
+donor1_cell_type,Transitional B,kbet_acceptance_perm,site,0.9963503649635036,274,4
+donor1_cell_type,Transitional B,batch_asw_perm,site,0.9823565046377826,274,4
+global,all,clisi_median,cell_type,1.0000000000000007,49085,13
+global,all,clisi_score,cell_type,1.0,49085,13
+global,all,celltype_asw,cell_type,0.19792175815140545,49085,13
+lineage,erythroid,clisi_median,cell_type,1.0024423009948278,11948,5
+lineage,erythroid,clisi_score,cell_type,0.9993894247512931,11948,5
+lineage,erythroid,celltype_asw,cell_type,0.3117638749819905,11948,5
+lineage,lymphoid,clisi_median,cell_type,1.0184963893950911,9225,4
+lineage,lymphoid,clisi_score,cell_type,0.9938345368683029,9225,4
+lineage,lymphoid,celltype_asw,cell_type,0.12392837997521892,9225,4
+lineage,myeloid,clisi_median,cell_type,1.0000000000000002,26209,3
+lineage,myeloid,clisi_score,cell_type,0.9999999999999999,26209,3
+lineage,myeloid,celltype_asw,cell_type,0.19678515269793279,26209,3
