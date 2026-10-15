@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 
@@ -127,7 +128,8 @@ def decipher_train(
     Returns
     -------
     decipher: Decipher
-        The trained decipher model.
+        The trained decipher model, with the weights of the epoch with the lowest validation NLL
+        (`decipher.best_epoch_`), not those of the last epoch.
     val_losses: list of float
         The validation losses at each epoch.
     `adata.obs['decipher_split']`: categorical
@@ -226,6 +228,9 @@ def decipher_train(
         early_stopping = EarlyStopping(patience=int(1e30))
 
     pbar = tqdm(range(decipher_config.n_epochs))
+    best_params = None
+    best_val_nll = np.inf
+    decipher.best_epoch_ = None  # epoch whose weights are restored after training
     last_train_elbo = np.nan
     val_nll = np.nan
     for epoch in pbar:
@@ -267,6 +272,10 @@ def decipher_train(
             f" {val_nll:.2f}"
         )
         last_train_elbo = train_elbo / train_elbo_n_obs
+        if val_nll < best_val_nll:
+            best_val_nll = val_nll
+            best_params = _snapshot_params(decipher)
+            decipher.best_epoch_ = epoch
         if early_stopping(val_nll):
             break
 
@@ -297,6 +306,11 @@ def decipher_train(
 
     if early_stopping.has_stopped():
         logger.info("Early stopping has been triggered.")
+    if best_params is not None:
+        _restore_params(decipher, best_params)
+        logger.info(
+            f"Restored weights from epoch {decipher.best_epoch_} (lowest val NLL {best_val_nll:.2f})."
+        )
     _decipher_to_adata(decipher, adata)
     decipher_save_model(adata, decipher)
 
@@ -311,6 +325,19 @@ def decipher_train(
     plot_decipher_v(adata, basis="decipher_v", **plot_kwargs)
 
     return decipher, val_losses
+
+
+def _snapshot_params(decipher: Decipher) -> tuple[dict, torch.Tensor]:
+    """Copy of the module weights and theta (a pyro param that is not in the state_dict)."""
+    return copy.deepcopy(decipher.state_dict()), pyro.param("theta").detach().clone()
+
+
+def _restore_params(decipher: Decipher, params: tuple[dict, torch.Tensor]) -> None:
+    """Load a `_snapshot_params` copy back into the model and the pyro param store."""
+    state_dict, theta = params
+    decipher.load_state_dict(state_dict)  # in place, so the param store keeps the same tensors
+    pyro.get_param_store()["theta"] = theta
+    decipher.theta = pyro.param("theta")
 
 
 def rot(t, u=1):
