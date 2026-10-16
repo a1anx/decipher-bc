@@ -22,6 +22,7 @@ import warnings
 import anndata as ad
 import matplotlib
 import numpy as np
+import torch
 
 matplotlib.use("Agg")
 
@@ -65,6 +66,11 @@ def run_preset(name: str, adata: ad.AnnData) -> str:
     adata = adata.copy()
     n_batches = adata.obs[BATCH_KEY].cat.categories.size
     config = dc.tl.DecipherConfig(**PRESETS[name], n_batches=n_batches, seed=0, n_epochs=N_EPOCHS)
+    # Pin torch's thread count before every training, as the sweep drivers do: the thread count
+    # sets the float reduction order, and the previous preset's `cell_clusters` (numba, via
+    # pynndescent) raises torch's shared OpenMP count from the physical-core default to every
+    # logical CPU, so otherwise val NLL depends on which presets ran before.
+    torch.set_num_threads(1)
     t0 = time.time()
     model, val_losses = dc.tl.decipher_train(
         adata, config, batch_key=BATCH_KEY, plot_kwargs={"color": BATCH_KEY}
