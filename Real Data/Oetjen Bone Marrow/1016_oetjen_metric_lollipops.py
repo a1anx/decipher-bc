@@ -9,9 +9,12 @@ show as a darker dot. Rows: v batch, z batch, erythroid branch, myeloid branch.
 
 Run from the repo root:
     .venv/bin/python "Real Data/Oetjen Bone Marrow/1016_oetjen_metric_lollipops.py"
-Writes ``1016_<dataset>_metric_lollipops.png`` next to this script.
+Writes ``1016_<dataset>_metric_lollipops.png`` next to this script. ``--models native model5e``
+draws only those lollipops (y ranges from them alone) to
+``1016_<dataset>_metric_lollipops_native-model5e.png``.
 """
 
+import argparse
 from pathlib import Path
 
 import matplotlib
@@ -70,18 +73,20 @@ def ylims(frames: list[pd.DataFrame]) -> dict[tuple[str, str, str], tuple[float,
     return out
 
 
-def panel(ax: plt.Axes, df: pd.DataFrame, key: tuple[str, str, str], ylim: tuple) -> None:
+def panel(
+    ax: plt.Axes, df: pd.DataFrame, key: tuple[str, str, str], ylim: tuple, models: list[str]
+) -> None:
     space, metric, branch = key
     sel = select(df, *key)
     ax.set_ylim(*ylim)
-    for x, model in enumerate(MODELS):
+    for x, model in enumerate(models):
         m = sel[sel.model == model]
         ax.vlines(x, m.value.min(), m.value.max(), color=STEM, lw=2, zorder=2)
         ax.scatter([x] * len(m), m.value, s=60, color=DOT, alpha=0.5, linewidth=0, zorder=3)
     branch_txt = "" if branch == "all" else f"\n{branch} branch"
     ax.set_title(f"{metric} ({space}){branch_txt}", fontsize=10, color="#0b0b0b")
-    ax.set_xticks(range(len(MODELS)), MODELS)
-    ax.set_xlim(-0.6, len(MODELS) - 0.4)
+    ax.set_xticks(range(len(models)), models)
+    ax.set_xlim(-0.6, len(models) - 0.4)
     ax.tick_params(colors=TEXT, labelsize=9)
     ax.grid(axis="y", color="#e4e3df", lw=0.6)
     ax.set_axisbelow(True)
@@ -91,27 +96,32 @@ def panel(ax: plt.Axes, df: pd.DataFrame, key: tuple[str, str, str], ylim: tuple
         ax.spines[side].set_color("#c3c2b7")
 
 
-def plot(dataset: str, df: pd.DataFrame, limits: dict) -> Path:
+def plot(dataset: str, df: pd.DataFrame, limits: dict, models: list[str]) -> Path:
     fig, axes = plt.subplots(len(ROWS), 3, figsize=(10, 13), constrained_layout=True)
     for row, keys in zip(axes, ROWS):
         for ax in row[len(keys) :]:
             ax.set_visible(False)
         for ax, key in zip(row, keys):
-            panel(ax, df, key, limits[key])
+            panel(ax, df, key, limits[key], models)
     fig.suptitle(
-        f"{dataset}: native vs model5 vs model5e, one dot per decipherseed (0, 1, 2)", fontsize=13
+        f"{dataset}: {' vs '.join(models)}, one dot per decipherseed (0, 1, 2)", fontsize=13
     )
-    out = HERE / f"1016_{dataset}_metric_lollipops.png"
+    suffix = "" if models == MODELS else "_" + "-".join(models)
+    out = HERE / f"1016_{dataset}_metric_lollipops{suffix}.png"
     fig.savefig(out, dpi=150, facecolor="white")
     plt.close(fig)
     return out
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--models", nargs="+", choices=MODELS, default=MODELS)
+    models = [m for m in MODELS if m in parser.parse_args().models]
     frames = {dataset: load(dataset) for dataset in DATASETS}
+    frames = {dataset: df[df.model.isin(models)] for dataset, df in frames.items()}
     limits = ylims(list(frames.values()))
     for dataset, df in frames.items():
-        print(plot(dataset, df, limits))
+        print(plot(dataset, df, limits, models))
 
 
 if __name__ == "__main__":
