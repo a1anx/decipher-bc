@@ -48,3 +48,6 @@ test-results/
 
 # Slide decks under Claude Files/ stay local like the rest of the folder (each rebuild is ~44 MB)
 Claude Files/**/*.pptx
+
+# Regenerable eval caches (e.g. 1008_bmmc/eval/_cache/)
+_cache/
