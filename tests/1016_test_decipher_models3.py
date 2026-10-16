@@ -70,3 +70,87 @@ def test_positional_split_picks_the_cells_by_name_split_picks_on_unique_names(se
     fixed = _p01_split(split_by_position, raw, seed)
     reference = _p01_split(split_by_name, unique, seed)
     assert np.array_equal(fixed.to_numpy(), reference.to_numpy())
+
+
+# --- P03: best-epoch restore -------------------------------------------------------------------
+# `decipher_train` returns the weights of the lowest-val-NLL epoch, not the last. Arm-agnostic
+# port of tests/1015_test_m5_restore_best.py: a full run must equal a run truncated right after its
+# best epoch (same seed, no early stopping), compared on the whole state_dict and theta without
+# naming any parameter. Run on one concat_z arm (model2) and one concat_x arm (model5).
+
+_P03_EPOCHS = 30
+_P03_BATCH_KEY = "batch"
+
+
+def _p03_make_adata(n_cells=200, n_genes=50, n_batches=3, seed=0):
+    """Synthetic integer counts with a categorical batch column."""
+    import anndata as ad
+    import pandas as pd
+
+    rng = np.random.default_rng(seed)
+    counts = rng.poisson(lam=rng.gamma(2.0, 2.0, size=n_genes), size=(n_cells, n_genes))
+    obs = pd.DataFrame(
+        {_P03_BATCH_KEY: pd.Categorical([f"b{i % n_batches}" for i in range(n_cells)])},
+        index=[f"cell{i}" for i in range(n_cells)],
+    )
+    return ad.AnnData(X=counts.astype(np.float32), obs=obs)
+
+
+def _p03_train(preset, n_epochs, save_folder):
+    """Train `preset` without early stopping; return (state_dict, theta, val_losses, best_epoch)."""
+    import matplotlib
+    import pyro
+
+    import decipher_models3 as dc
+    from decipher_models3.tools._decipher import DecipherConfig
+    from decipher_models3.utils import DECIPHER_GLOBALS
+
+    matplotlib.use("Agg")
+    DECIPHER_GLOBALS["save_folder"] = str(save_folder)
+    config = DecipherConfig(
+        **PRESETS_3[preset],
+        seed=1,
+        n_epochs=n_epochs,
+        learning_rate=5e-2,
+        early_stopping_patience=None,
+    )
+    model, val_losses = dc.tl.decipher_train(
+        _p03_make_adata(),
+        config,
+        batch_key=_P03_BATCH_KEY,
+        plot_every_k_epochs=-2,
+        plot_kwargs={"color": _P03_BATCH_KEY},
+    )
+    theta = pyro.param("theta").detach().clone()
+    return model.state_dict(), theta, val_losses, model.best_epoch_
+
+
+@pytest.fixture(scope="module", params=["model2", "model5"])
+def _p03_full_and_truncated(request, tmp_path_factory):
+    """(full run, run truncated after the full run's best epoch) for one arm."""
+    folder = tmp_path_factory.mktemp("ckpt")
+    full = _p03_train(request.param, _P03_EPOCHS, folder)
+    return full, _p03_train(request.param, full[3] + 1, folder)
+
+
+def test_best_epoch_is_the_argmin_of_val_nll_and_not_the_last_epoch(_p03_full_and_truncated):
+    (_, _, val_losses, best_epoch), _ = _p03_full_and_truncated
+    assert len(val_losses) == _P03_EPOCHS
+    assert best_epoch == int(np.argmin(val_losses))
+    assert best_epoch < _P03_EPOCHS - 1  # the last epoch is worse, so the restore does something
+
+
+def test_restored_weights_equal_run_stopped_at_best_epoch(_p03_full_and_truncated):
+    import torch
+
+    (full_sd, _, _, _), (trunc_sd, _, _, _) = _p03_full_and_truncated
+    assert full_sd.keys() == trunc_sd.keys()
+    for key in full_sd:
+        torch.testing.assert_close(full_sd[key], trunc_sd[key], rtol=0, atol=0, msg=key)
+
+
+def test_restored_theta_equals_run_stopped_at_best_epoch(_p03_full_and_truncated):
+    import torch
+
+    (_, full_theta, _, _), (_, trunc_theta, _, _) = _p03_full_and_truncated
+    torch.testing.assert_close(full_theta, trunc_theta, rtol=0, atol=0)
