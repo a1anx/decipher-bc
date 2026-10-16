@@ -1,5 +1,6 @@
 import itertools
 import logging
+from typing import List, Optional
 
 import networkx as nx
 import numpy as np
@@ -435,11 +436,60 @@ def decipher_time(adata, n_neighbors=10):
     logging.info("Added `.obs['decipher_time']`: the decipher time of each cell.")
 
 
-def gene_patterns(adata, l_scale=10_000, n_samples=100):
+def _batch_codes(adata, config, batch) -> Optional[List[int]]:
+    """Integer codes of the batches to average gene patterns over; None for a batch-blind model.
+
+    `batch` is None (every batch), one batch name, or a list of names, matched against the
+    categories of `adata.obs[config.batch_key]` (the same conversion as `get_batch_idx`).
+    """
+    batch_conditioned = config.batch_conditioning != "none" and config.n_batches > 0
+    if not batch_conditioned:
+        if batch is not None:
+            raise ValueError(f"batch={batch!r} given, but the model is not batch-conditioned.")
+        return None
+    if batch is None:
+        return list(range(config.n_batches))
+
+    names = list(batch) if isinstance(batch, (list, tuple)) else [batch]
+    if not names:
+        raise ValueError("batch=[] selects no batch; pass None to average over every batch.")
+    categories = list(adata.obs[config.batch_key].astype("category").cat.categories)
+    if len(categories) != config.n_batches:
+        raise ValueError(
+            f"adata.obs[{config.batch_key!r}] has {len(categories)} categories, but the model "
+            f"was trained with n_batches={config.n_batches}."
+        )
+    unknown = [n for n in names if n not in categories]
+    if unknown:
+        raise ValueError(f"Unknown batch {unknown}; {config.batch_key!r} has {categories}.")
+    return [categories.index(n) for n in names]
+
+
+def _expression(model, z, codes):
+    """softmax(decoder logits) of `z`, averaged uniformly over batch `codes` (None: batch-blind).
+
+    Averaged in expression space, per z sample, so a quantile over samples reflects z only.
+    """
+    if codes is None:
+        return torch.nn.functional.softmax(model.decoder_z_to_x(z), dim=-1)
+    per_batch = [
+        torch.nn.functional.softmax(
+            model._decode_x(z, torch.full(z.shape[:-1], b, dtype=torch.long)), dim=-1
+        )
+        for b in codes
+    ]
+    return torch.stack(per_batch).mean(dim=0)
+
+
+def gene_patterns(adata, l_scale=10_000, n_samples=100, batch=None):
     """Compute the gene patterns for each trajectory.
 
     The trajectories' points are sent through the decoders, thus defining distributions over the
     gene expression. The gene patterns are computed by sampling from these distribution.
+
+    Trajectory points have no batch. For a batch-conditioned model (model5, model5e) each point
+    is decoded once per batch and the expression averaged uniformly over batches, as scVI's
+    `transform_batch`. The prior v -> z is batch-blind, so only the z -> x decode sees the batch.
 
     Parameters
     ----------
@@ -450,6 +500,10 @@ def gene_patterns(adata, l_scale=10_000, n_samples=100):
         The library size scaling factor.
     n_samples : int
         The number of samples to draw from the decoder to compute the gene pattern statistics.
+    batch : str, list of str, or None
+        Batch-conditioned models only. None averages over every batch; a name decodes with
+        that batch only; a list averages over those batches. Raises ValueError on an unknown
+        name, an empty list, or any value for a batch-blind model.
 
     Returns
     -------
@@ -463,6 +517,7 @@ def gene_patterns(adata, l_scale=10_000, n_samples=100):
     """
     uns_decipher_key = "gene_patterns"
     model = decipher_load_model(adata)
+    codes = _batch_codes(adata, model.config, batch)
     if uns_decipher_key not in adata.uns["decipher"]:
         adata.uns["decipher"][uns_decipher_key] = dict()
 
@@ -481,15 +536,9 @@ def gene_patterns(adata, l_scale=10_000, n_samples=100):
         z_samples = torch.distributions.Normal(z_mean, z_scale).sample(sample_shape=(n_samples,))
 
         gene_patterns = dict()
-        gene_patterns["mean"] = (
-            torch.nn.functional.softmax(model.decoder_z_to_x(z_mean), dim=-1).detach().numpy()
-            * l_scale
-        )
+        gene_patterns["mean"] = _expression(model, z_mean, codes).detach().numpy() * l_scale
 
-        gene_expression_samples = (
-            torch.nn.functional.softmax(model.decoder_z_to_x(z_samples), dim=-1).detach().numpy()
-            * l_scale
-        )
+        gene_expression_samples = _expression(model, z_samples, codes).detach().numpy() * l_scale
         gene_patterns["q25"] = np.quantile(gene_expression_samples, 0.25, axis=0)
         gene_patterns["q75"] = np.quantile(gene_expression_samples, 0.75, axis=0)
 

@@ -99,7 +99,9 @@ def _drop_removed_config_keys(config: dict) -> dict:
     mode is a different model and raises.
     """
     config = dict(config)
-    mode = config.pop("batch_embedding_mode", "concat_x")
+    if "batch_embedding_mode" not in config:
+        return config  # a decipher_m5 config; dim_batch_embedding is live here (model5e)
+    mode = config.pop("batch_embedding_mode")
     config.pop("dim_batch_embedding", None)
     if config.get("batch_conditioning", "none") != "none" and mode != "concat_x":
         raise ValueError(
