@@ -154,3 +154,228 @@ def test_restored_theta_equals_run_stopped_at_best_epoch(_p03_full_and_truncated
 
     (_, full_theta, _, _), (_, trunc_theta, _, _) = _p03_full_and_truncated
     torch.testing.assert_close(full_theta, trunc_theta, rtol=0, atol=0)
+
+
+# --- P02: model math, equivalence, loading -----------------------------------------------------
+# Untrained eval-mode models on a small synthetic AnnData, no training beyond single SVI steps.
+# Equivalence uses the m5 tests' setup (tests/1008_test_decipher_m5.py): eval mode, Pyro seed fixed
+# before every sampling call, float32 at rtol 1e-5 / atol 1e-6. concat_z arms (and native) are
+# checked against `decipher_models`; model5 against `decipher_m5` model5e.
+
+import anndata as ad  # noqa: E402
+import pandas as pd  # noqa: E402
+import pyro  # noqa: E402
+import torch  # noqa: E402
+from pyro.infer import SVI, Trace_ELBO  # noqa: E402
+from pyro.optim import Adam  # noqa: E402
+
+import decipher_models.tools._decipher.data as _p02_data_1  # noqa: E402
+import decipher_models3.tools._decipher.data as _p02_data_3  # noqa: E402
+from decipher_models.utils import DECIPHER_GLOBALS as _P02_GLOBALS_1  # noqa: E402
+from decipher_models3.tools._decipher import Decipher, DecipherConfig  # noqa: E402
+from decipher_models3.utils import DECIPHER_GLOBALS as _P02_GLOBALS_3  # noqa: E402
+
+_P02_RTOL, _P02_ATOL = 1e-5, 1e-6
+_P02_BATCH_KEY = "batch"
+_P02_N_BATCHES = 3
+_P02_N_GENES = 50
+_P02_D_E = 8  # default dim_batch_embedding
+_P02_CONCAT_X = ["model4", "model5", "model6"]
+_P02_BATCH_ARMS = ["model1", "model2", "model3", *_P02_CONCAT_X]
+# decipher_models3 arm -> (reference package, reference preset) it must reproduce.
+_P02_REFERENCE = {
+    "native": ("decipher_models", "native"),
+    "model1": ("decipher_models", "model1"),
+    "model2": ("decipher_models", "model2"),
+    "model3": ("decipher_models", "model3"),
+    "model5": ("decipher_m5", "model5e"),
+}
+_P02_OUTPUTS = ["v", "z", "z_raw", "impute", "model log-prob"]
+
+
+def _p02_make_adata(n_cells=120, seed=0):
+    """Synthetic integer counts with a categorical batch column."""
+    rng = np.random.default_rng(seed)
+    counts = rng.poisson(lam=rng.gamma(2.0, 2.0, size=_P02_N_GENES), size=(n_cells, _P02_N_GENES))
+    obs = pd.DataFrame(
+        {_P02_BATCH_KEY: pd.Categorical([f"b{i % _P02_N_BATCHES}" for i in range(n_cells)])},
+        index=[f"cell{i}" for i in range(n_cells)],
+    )
+    return ad.AnnData(X=counts.astype(np.float32), obs=obs)
+
+
+_P02_ADATA = _p02_make_adata()
+_P02_X = torch.tensor(_P02_ADATA.X)
+_P02_BATCH_IDX = torch.tensor(_P02_ADATA.obs[_P02_BATCH_KEY].cat.codes.values).long()
+
+
+def _p02_build(preset, package="decipher_models3", seed=0, batch_key=_P02_BATCH_KEY):
+    """Untrained eval-mode Decipher of `package`, built with Pyro seed `seed`."""
+    tools = importlib.import_module(f"{package}.tools._decipher")
+    presets = importlib.import_module(f"{package}.presets").PRESETS
+    config = tools.DecipherConfig(**presets[preset])
+    config.initialize_from_adata(_P02_ADATA, batch_key=batch_key)
+    pyro.clear_param_store()
+    pyro.util.set_rng_seed(seed)
+    return tools.Decipher(config).eval()
+
+
+def _p02_randomize_emb(model, seed=1):
+    """Give `batch_emb` nonzero rows (a zero table makes every batch path trivially equal)."""
+    with torch.no_grad():
+        weight = model.batch_emb.weight
+        weight.copy_(torch.randn(weight.shape, generator=torch.Generator().manual_seed(seed)))
+    return model
+
+
+def _p02_outputs(model, x=_P02_X, batch_idx=_P02_BATCH_IDX):
+    """v, z, z_raw, imputed counts and the model trace log-prob under a replayed guide."""
+    v, z, z_raw = map(torch.as_tensor, model.compute_v_z_numpy(x, batch_idx))
+    pyro.clear_param_store()
+    pyro.util.set_rng_seed(0)
+    impute = torch.as_tensor(model.impute_gene_expression_numpy(x, batch_idx))
+    pyro.clear_param_store()
+    pyro.util.set_rng_seed(0)
+    with torch.no_grad():
+        guide_trace = pyro.poutine.trace(model.guide).get_trace(x, batch_idx)
+        replayed = pyro.poutine.replay(model.model, trace=guide_trace)
+        log_prob = pyro.poutine.trace(replayed).get_trace(x, batch_idx).log_prob_sum()
+    return {"v": v, "z": z, "z_raw": z_raw, "impute": impute, "model log-prob": log_prob}
+
+
+def _p02_widths(model):
+    """Input widths of (encoder_x_to_z, encoder_zx_to_v, decoder_v_to_z, decoder_z_to_x)."""
+    nets = (model.encoder_x_to_z, model.encoder_zx_to_v, model.decoder_v_to_z, model.decoder_z_to_x)
+    return tuple(net.layers[0].in_features for net in nets)
+
+
+@pytest.fixture(scope="module", params=sorted(_P02_REFERENCE))
+def _p02_loaded_pair(request):
+    """(arm, reference outputs, decipher_models3 outputs with the reference weights loaded)."""
+    package, preset = _P02_REFERENCE[request.param]
+    reference = _p02_build(preset, package=package)
+    if getattr(reference, "batch_emb", None) is not None:  # decipher_models native has none
+        _p02_randomize_emb(reference)
+    model = _p02_build(request.param, seed=1)
+    model.load_state_dict(reference.state_dict(), strict=True)
+    return request.param, _p02_outputs(reference), _p02_outputs(model)
+
+
+def test_additive_batch_embedding_mode_raises():
+    with pytest.raises(ValueError, match="batch_embedding_mode='additive'"):
+        DecipherConfig(batch_conditioning="decoder_only", batch_embedding_mode="additive")
+
+
+@pytest.mark.parametrize("name", _P02_OUTPUTS)
+def test_reference_weights_loaded_strictly_give_reference_outputs(_p02_loaded_pair, name):
+    arm, out_ref, out_new = _p02_loaded_pair
+    torch.testing.assert_close(out_new[name], out_ref[name], rtol=_P02_RTOL, atol=_P02_ATOL)
+
+
+@pytest.mark.parametrize("arm", sorted(_P02_REFERENCE))
+def test_same_seed_gives_reference_state_dict(arm):
+    package, preset = _P02_REFERENCE[arm]
+    sd_ref = _p02_build(preset, package=package).state_dict()
+    sd_new = _p02_build(arm).state_dict()
+    assert list(sd_new) == list(sd_ref)
+    for key in sd_ref:
+        assert torch.equal(sd_new[key], sd_ref[key]), key
+
+
+@pytest.mark.parametrize("arm", _P02_CONCAT_X)
+def test_concat_x_batch_emb_is_zero_initialized(arm):
+    model = _p02_build(arm)
+    assert torch.equal(model.batch_emb.weight, torch.zeros(_P02_N_BATCHES, _P02_D_E))
+
+
+@pytest.mark.parametrize("arm", _P02_CONCAT_X)
+def test_untrained_concat_x_model_is_batch_blind(arm):
+    _, z, z_raw = _p02_build(arm).compute_v_z_numpy(_P02_X, _P02_BATCH_IDX)
+    np.testing.assert_allclose(z, z_raw, rtol=1e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize("arm", _P02_CONCAT_X)
+def test_one_svi_step_moves_concat_x_embedding_off_zero(arm):
+    model = _p02_build(arm).train()
+    svi = SVI(model.model, model.guide, Adam({"lr": 1e-2}), Trace_ELBO())
+    svi.step(_P02_X, _P02_BATCH_IDX)
+    assert model.batch_emb.weight.abs().sum() > 0
+
+
+def test_model4_guide_ignores_the_batch():
+    model = _p02_randomize_emb(_p02_build("model4"))
+    as_b0 = model.compute_v_z_numpy(_P02_X, torch.zeros(len(_P02_X), dtype=torch.long))
+    as_b1 = model.compute_v_z_numpy(_P02_X, torch.ones(len(_P02_X), dtype=torch.long))
+    for a, b in zip(as_b0, as_b1):  # v, z, z_raw
+        np.testing.assert_array_equal(a, b)
+
+
+@pytest.mark.parametrize("arm", ["model1", "model4"])
+def test_decoder_only_generative_model_depends_on_the_batch(arm):
+    model = _p02_randomize_emb(_p02_build(arm))
+    as_b0 = _p02_outputs(model, batch_idx=torch.zeros(len(_P02_X), dtype=torch.long))
+    as_b1 = _p02_outputs(model, batch_idx=torch.ones(len(_P02_X), dtype=torch.long))
+    assert not torch.allclose(as_b0["model log-prob"], as_b1["model log-prob"])
+
+
+_P02_G, _P02_DZ, _P02_DV, _P02_E = _P02_N_GENES, 10, 2, _P02_D_E
+# (encoder_x_to_z, encoder_zx_to_v, decoder_v_to_z, decoder_z_to_x) input widths per arm.
+_P02_EXPECTED_WIDTHS = {
+    "native": (_P02_G, _P02_G + _P02_DZ, _P02_DV, _P02_DZ),
+    "model1": (_P02_G, _P02_G + _P02_DZ, _P02_DV + _P02_E, _P02_DZ),
+    "model2": (_P02_G + _P02_E, _P02_G + _P02_DZ, _P02_DV + _P02_E, _P02_DZ),
+    "model3": (_P02_G + _P02_E, _P02_G, _P02_DV + _P02_E, _P02_DZ),
+    "model4": (_P02_G, _P02_G + _P02_DZ, _P02_DV, _P02_DZ + _P02_E),
+    "model5": (_P02_G + _P02_E, _P02_G + _P02_DZ, _P02_DV, _P02_DZ + _P02_E),
+    "model6": (_P02_G + _P02_E, _P02_G, _P02_DV, _P02_DZ + _P02_E),
+}
+
+
+@pytest.mark.parametrize("arm", sorted(_P02_EXPECTED_WIDTHS))
+def test_network_input_widths_follow_the_arm(arm):
+    assert _p02_widths(_p02_build(arm)) == _P02_EXPECTED_WIDTHS[arm]
+
+
+@pytest.mark.parametrize("arm", _P02_BATCH_ARMS)
+def test_zero_batches_builds_no_table_and_native_widths(arm):
+    model = _p02_build(arm, batch_key="no_such_column")
+    assert model.batch_emb is None
+    v_encoder = _P02_G if model.config.mean_field_v else _P02_G + _P02_DZ
+    assert _p02_widths(model) == (_P02_G, v_encoder, _P02_DV, _P02_DZ)
+
+
+@pytest.mark.parametrize("arm", ["model1", "model2", "model5"])
+def test_batch_idx_none_equals_batch_zero(arm):
+    model = _p02_randomize_emb(_p02_build(arm))
+    from_none = _p02_outputs(model, batch_idx=None)
+    from_zeros = _p02_outputs(model, batch_idx=torch.zeros(len(_P02_X), dtype=torch.long))
+    for name in _P02_OUTPUTS:
+        torch.testing.assert_close(from_none[name], from_zeros[name], rtol=0, atol=0)
+
+
+def test_one_hot_concat_x_checkpoint_raises_explicit_error(tmp_path, monkeypatch):
+    monkeypatch.setitem(_P02_GLOBALS_1, "save_folder", str(tmp_path))
+    monkeypatch.setitem(_P02_GLOBALS_3, "save_folder", str(tmp_path))
+    saved = _P02_ADATA.copy()
+    _p02_data_1.decipher_save_model(saved, _p02_build("model5", package="decipher_models"))
+    with pytest.raises(ValueError, match="one-hot concat_x model .* decipher_models"):
+        _p02_data_3.decipher_load_model(saved)
+
+
+@pytest.mark.parametrize("arm", sorted(_P02_EXPECTED_WIDTHS))
+def test_save_load_roundtrip_reproduces_the_model(arm, tmp_path, monkeypatch):
+    monkeypatch.setitem(_P02_GLOBALS_3, "save_folder", str(tmp_path))
+    model = _p02_build(arm)
+    if model.batch_emb is not None:
+        _p02_randomize_emb(model)
+    saved = _P02_ADATA.copy()
+    _p02_data_3.decipher_save_model(saved, model)
+    saved.write_h5ad(tmp_path / "saved.h5ad")
+    loaded = _p02_data_3.decipher_load_model(ad.read_h5ad(tmp_path / "saved.h5ad"))
+
+    assert isinstance(loaded, Decipher)
+    for a, b in zip(
+        loaded.compute_v_z_numpy(_P02_X, _P02_BATCH_IDX),
+        model.compute_v_z_numpy(_P02_X, _P02_BATCH_IDX),
+    ):
+        np.testing.assert_array_equal(a, b)

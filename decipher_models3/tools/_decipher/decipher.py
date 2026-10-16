@@ -1,3 +1,26 @@
+"""DecipherConfig and Decipher for the seven arms of `decipher_models3`.
+
+Rewritten 2026-10-16 from `decipher_models/tools/_decipher/decipher.py`. Every batch arm has ONE
+learned table `batch_emb = nn.Embedding(n_batches, dim_batch_embedding)`, shared by every network
+that sees the batch, and its row e_b is concatenated onto that network's input (x~ = log1p x):
+
+    arm      prior            reconstruction   guide on z          v encoder
+    native   f_vz(v)          f_zx(z)          g_xz(x~)            full
+    model1   f_vz([v; e_b])   f_zx(z)          g_xz(x~)            full
+    model2   f_vz([v; e_b])   f_zx(z)          g_xz([x~; e_b])     full
+    model3   f_vz([v; e_b])   f_zx(z)          g_xz([x~; e_b])     mean-field (x~ only)
+    model4   f_vz(v)          f_zx([z; e_b])   g_xz(x~)            full
+    model5   f_vz(v)          f_zx([z; e_b])   g_xz([x~; e_b])     full
+    model6   f_vz(v)          f_zx([z; e_b])   g_xz([x~; e_b])     mean-field (x~ only)
+
+concat_z (model1-3) is `decipher_models`' math and init: `batch_emb` is built BEFORE the networks
+with PyTorch's default N(0, 1) init, so the same seed gives `decipher_models`' state_dict.
+concat_x (model4-6) replaces `decipher_models`' fixed one-hot context with the shared embedding of
+`decipher_m5` model5e: `batch_emb` is built AFTER the networks and zero-initialized, so the
+untrained model is batch-blind and the same seed gives model5e's state_dict for model5.
+The `additive` family (Set 2) does not exist here.
+"""
+
 import dataclasses
 from dataclasses import dataclass
 from typing import Literal, Optional, Sequence, Union, get_args, get_origin, get_type_hints
@@ -37,21 +60,21 @@ class DecipherConfig:
     # ---- BATCH ----
     # `batch_conditioning` says WHICH HALF of the model sees the batch label, and reads the
     # same way in every mode:
+    #   "none"            -- native. No batch anywhere.
     #   "decoder_only"    -- batch reaches the generative model only. That is decoder_v_to_z
-    #                        under "concat_z"/"additive", and decoder_z_to_x under "concat_x".
+    #                        under "concat_z", and decoder_z_to_x under "concat_x".
     #   "decoder_encoder" -- batch also reaches the guide, via encoder_x_to_z.
     #
-    # `batch_embedding_mode` says WHERE and HOW it enters:
-    #   "concat_z" -- Set 1. A learned nn.Embedding concatenated into decoder_v_to_z's input
-    #                 (and encoder_x_to_z's), so the batch shifts the biological prior on z.
-    #   "additive" -- Set 2. A zero-init nn.Embedding(n_batches, dim_z) added onto z_loc after
-    #                 a batch-blind network runs. Same graphical model as Set 1.
-    #   "concat_x" -- Set 3. The b -> z edge is deleted outright; the prior is identical to base
-    #                 Decipher. Batch reaches only the reconstruction, as a fixed one-hot
-    #                 `context` of width n_batches. `dim_batch_embedding` is unread here.
+    # `batch_embedding_mode` says WHERE it enters. Both modes use one learned table
+    # `batch_emb` (n_batches x dim_batch_embedding) whose row e_b is concatenated onto inputs:
+    #   "concat_z" -- Set 1. e_b joins decoder_v_to_z's input, so the batch shifts the prior on
+    #                 z. Default N(0, 1) init, as `decipher_models`.
+    #   "concat_x" -- Set 3. The b -> z edge is deleted; the prior is identical to base Decipher.
+    #                 e_b joins decoder_z_to_x's input. Zero init, as `decipher_m5` model5e.
+    # "additive" (Set 2) was removed in decipher_models3 and raises.
     batch_conditioning: Literal["none", "decoder_only", "decoder_encoder"] = "none"
     mean_field_v: bool = False
-    batch_embedding_mode: Literal["concat_z", "additive", "concat_x"] = "concat_z"
+    batch_embedding_mode: Literal["concat_z", "concat_x"] = "concat_z"
     n_batches: int = 0
     dim_batch_embedding: int = 8
     batch_key: Optional[str] = None
@@ -141,52 +164,25 @@ class Decipher(nn.Module):
         self.config = config
         self.dummy_param = nn.Parameter(torch.empty(0))
 
-        bc = config.batch_conditioning
-        mode = config.batch_embedding_mode
-        batch_on = bc != "none"
-        encoder_on = bc == "decoder_encoder"
+        # Which networks get [input; e_b]. No table (native, or n_batches == 0) -> native widths.
+        has_table = config.batch_conditioning != "none" and config.n_batches > 0
+        concat_z = config.batch_embedding_mode == "concat_z"
+        self._emb_in_encoder = has_table and config.batch_conditioning == "decoder_encoder"
+        self._emb_in_prior = has_table and concat_z
+        self._emb_in_recon = has_table and not concat_z
+        d_e = config.dim_batch_embedding
 
-        # ---- batch conditioning ----
-        # Attribute names deliberately match the standalone variant packages, so a state_dict
-        # from any of them loads straight into this model (tests/test_variant_equivalence.py).
-        if batch_on and mode == "concat_z":
-            self.batch_emb = torch.nn.Embedding(
-                num_embeddings=config.n_batches,
-                embedding_dim=config.dim_batch_embedding,
-            )
-        elif batch_on and mode == "additive":
-            if encoder_on:
-                # Two tables, not one. A single shared table applied additively to z_loc on both
-                # the generative and the variational b -> z edge cancels exactly out of the z
-                # log-density ratio in the ELBO, so the gradient that would identify it is
-                # algebraically deleted. Matches model2-add / model3-add.
-                self.batch_shift_prior = self._make_batch_shift(config)  # generative, model()
-                self.batch_shift_post = self._make_batch_shift(config)  # variational, guide()
-            else:
-                # Only one b -> z edge exists (the guide is blind), so there is no second edge
-                # to give a second table to, and nothing to cancel. Matches model1-add.
-                self.batch_shift = self._make_batch_shift(config)
-        # "concat_x" learns no batch table at all: the context is a fixed one-hot. At n_batches=5
-        # that gives the first layer 5 dedicated input slots, no less expressive than an
-        # nn.Embedding(5, d) feeding the same layer, and cheaper.
-        # -----------------------------
-
-        encoder_extra = (
-            self.config.dim_batch_embedding if (encoder_on and mode == "concat_z") else 0
-        )
-        decoder_extra = self.config.dim_batch_embedding if (batch_on and mode == "concat_z") else 0
-        encoder_context = self.config.n_batches if (encoder_on and mode == "concat_x") else 0
-        recon_context = self.config.n_batches if (batch_on and mode == "concat_x") else 0
+        # The construction order fixes the RNG draws, so the same seed gives the same init as the
+        # package each family reproduces. concat_z (decipher_models): table first, default init.
+        self.batch_emb = None
+        if has_table and concat_z:
+            self.batch_emb = nn.Embedding(config.n_batches, d_e)
 
         # 2. Encoder
-        # ConditionalDenseNN joins the context onto the input at the first layer, so under
-        # "concat_x" the batch reaches BOTH output heads -- z_loc and z_scale come out of one
-        # final Linear and are split afterwards. The additive table reaches z_loc only.
         self.encoder_x_to_z = ConditionalDenseNN(
-            self.config.dim_genes + encoder_extra,
+            self.config.dim_genes + (d_e if self._emb_in_encoder else 0),
             [128],
             [self.config.dim_z] * 2,
-            context_dim=encoder_context,
         )
         self.encoder_zx_to_v = ConditionalDenseNN(
             (
@@ -202,20 +198,24 @@ class Decipher(nn.Module):
         ## v -> z. Batch-blind under "concat_x": that mode deletes the b -> z edge, so the prior
         ## is identical to base Decipher's and z is only PERMITTED to carry batch, not required to.
         self.decoder_v_to_z = ConditionalDenseNN(
-            input_dim=self.config.dim_v + decoder_extra,
+            input_dim=self.config.dim_v + (d_e if self._emb_in_prior else 0),
             hidden_dims=self.config.layers_v_to_z,
             output_dims=[self.config.dim_z] * 2,
         )
         ## z -> x (reconstruction). Batch-conditioned only under "concat_x".
-        ## With layers_z_to_x = () this is a single Linear(dim_z + n_batches, dim_genes), and
-        ## since the context is concatenated first, weight[:, :n_batches] is n_batches free
-        ## gene-space vectors -- one per batch, directly comparable to uns["gene_shift_matrix"].
+        ## With layers_z_to_x = () the per-batch logit shift is W_e e_b, with
+        ## W_e = decoder_z_to_x.layers[0].weight[:, dim_z:] (rank <= d_e in gene space).
         self.decoder_z_to_x = ConditionalDenseNN(
-            input_dim=self.config.dim_z,
+            input_dim=self.config.dim_z + (d_e if self._emb_in_recon else 0),
             hidden_dims=config.layers_z_to_x,
             output_dims=[self.config.dim_genes],
-            context_dim=recon_context,
         )
+
+        # concat_x (decipher_m5 model5e): table last, zero init, so the untrained model is
+        # batch-blind; gradients reach e_b through the nonzero first-layer weights.
+        if has_table and not concat_z:
+            self.batch_emb = nn.Embedding(config.n_batches, d_e)
+            nn.init.zeros_(self.batch_emb.weight)
 
         self._epsilon = 1e-5
 
@@ -225,80 +225,43 @@ class Decipher(nn.Module):
     def device(self):
         return self.dummy_param.device
 
-    # ---- "additive" mode helpers (Set 2) ----
+    # ---- batch helpers: every forward path goes through these ----
 
-    @staticmethod
-    def _make_batch_shift(config):
-        """Build one zero-initialized (n_batches, dim_z) shift table.
+    def _batch_vec(self, batch_idx: Optional[torch.Tensor], like: torch.Tensor):
+        """Per-cell rows e_b of `batch_emb`, shape (n_cells, d_e), or None without a table.
 
-        Returns None when the model has no batches, so every lookup site degrades to the
-        batch-blind model instead of raising IndexError.
+        None -- not zeros -- when the model has no table (native, or n_batches == 0), so every
+        network keeps its native width. `batch_idx=None` falls back to batch 0 for every cell.
         """
-        if config.n_batches == 0:
-            return None
-        table = torch.nn.Embedding(
-            num_embeddings=config.n_batches,
-            embedding_dim=config.dim_z,
-        )
-        torch.nn.init.zeros_(table.weight)  # intercepts start at zero
-        return table
-
-    def _shift(self, table, batch_idx, like):
-        """Per-cell shift rows, shape (n_cells, dim_z). Zeros when there is no table."""
-        if table is None:
-            return like.new_zeros(like.shape[0], self.config.dim_z)
-        return table(batch_idx)
-
-    def _to_common_frame(self, z_raw, table, batch_idx, like):
-        """Move every cell into one shared frame.
-
-        Subtracts the cell's own batch row and adds the mean row, so all batches sit in the
-        same frame and `z_raw - z` is the centred per-batch shift. Centring on the mean rather
-        than batch 0's row avoids privileging whichever batch sorts first.
-        """
-        if table is None:
-            return z_raw
-        return z_raw - self._shift(table, batch_idx, like) + table.weight.mean(dim=0, keepdim=True)
-
-    @property
-    def _prior_shift(self):
-        """The additive table on the generative b -> z edge, under either naming."""
-        if hasattr(self, "batch_shift_prior"):
-            return self.batch_shift_prior
-        return getattr(self, "batch_shift", None)
-
-    # ---- "concat_x" mode helpers (Set 3) ----
-
-    def _batch_context(self, batch_idx, like):
-        """One-hot batch context, shape (n_cells, n_batches), or None when there are none.
-
-        Returned as None -- not zeros -- when n_batches == 0, because a ConditionalDenseNN
-        built with context_dim=0 never reads its `context` argument. That makes the mode
-        degrade to the batch-blind model instead of raising.
-        """
-        if self.config.n_batches == 0:
+        if self.batch_emb is None:
             return None
         if batch_idx is None:
             batch_idx = like.new_zeros(like.shape[0]).long()
-        return torch.nn.functional.one_hot(batch_idx, num_classes=self.config.n_batches).to(
-            like.dtype
-        )
+        return self.batch_emb(batch_idx)
 
-    def _encoder_context(self, batch_idx, like):
-        """The context for encoder_x_to_z: None unless the guide is conditioned in concat_x."""
-        if self.config.batch_embedding_mode != "concat_x":
-            return None
-        if self.config.batch_conditioning != "decoder_encoder":
-            return None
-        return self._batch_context(batch_idx, like)
+    def _with_batch_emb(self, h: torch.Tensor, batch_idx: Optional[torch.Tensor]) -> torch.Tensor:
+        """[h; e_b], or `h` unchanged when there is no table."""
+        e = self._batch_vec(batch_idx, h)
+        return h if e is None else torch.cat([h, e], dim=-1)
 
-    def _recon_context(self, batch_idx, like):
-        """The context for decoder_z_to_x: None unless batch is wired into concat_x."""
-        if self.config.batch_embedding_mode != "concat_x":
-            return None
-        if self.config.batch_conditioning == "none":
-            return None
-        return self._batch_context(batch_idx, like)
+    def _encode_z(self, x: torch.Tensor, batch_idx: Optional[torch.Tensor]):
+        """encoder_x_to_z on log1p'd `x`: (z_loc, z_scale before softplus).
+
+        e_b is concatenated only under "decoder_encoder"; otherwise the guide is batch-blind.
+        """
+        h = self._with_batch_emb(x, batch_idx) if self._emb_in_encoder else x
+        return self.encoder_x_to_z(h)
+
+    def _prior_z(self, v: torch.Tensor, batch_idx: Optional[torch.Tensor]):
+        """decoder_v_to_z: (z_loc, z_scale before softplus). e_b is concatenated only under
+        "concat_z"."""
+        h = self._with_batch_emb(v, batch_idx) if self._emb_in_prior else v
+        return self.decoder_v_to_z(h)
+
+    def _decode_x(self, z: torch.Tensor, batch_idx: Optional[torch.Tensor]) -> torch.Tensor:
+        """decoder_z_to_x logits (before softmax). e_b is concatenated only under "concat_x"."""
+        h = self._with_batch_emb(z, batch_idx) if self._emb_in_recon else z
+        return self.decoder_z_to_x(h)
 
     def model(self, x, batch_idx=None):
         pyro.module("decipher", self)
@@ -308,14 +271,6 @@ class Decipher(nn.Module):
             x.new_ones(self.config.dim_genes),
             constraint=constraints.positive,
         )
-
-        bc = self.config.batch_conditioning
-        mode = self.config.batch_embedding_mode
-        if bc != "none":
-            if batch_idx is None:
-                batch_idx = x.new_zeros(x.shape[0]).long()
-            if mode == "concat_z":
-                batch_vec = self.batch_emb(batch_idx)
 
         with pyro.plate("batch", len(x)), poutine.scale(scale=1.0):
             with poutine.scale(scale=self.config.beta):
@@ -327,19 +282,13 @@ class Decipher(nn.Module):
                     raise ValueError("Invalid prior, must be normal or gamma")
                 v = pyro.sample("v", prior)
 
-            # v -> z prior. Under "concat_x" this edge is batch-blind by design.
-            if bc != "none" and mode == "concat_z":
-                v_combined = torch.cat([v, batch_vec], dim=-1)
-                z_loc, z_scale = self.decoder_v_to_z(v_combined)
-            else:
-                z_loc, z_scale = self.decoder_v_to_z(v)
-                if bc != "none" and mode == "additive":
-                    z_loc = z_loc + self._shift(self._prior_shift, batch_idx, x)
+            # v -> z prior. p(z|v,b) under "concat_z", p(z|v) otherwise.
+            z_loc, z_scale = self._prior_z(v, batch_idx)
             z_scale = softplus(z_scale)
             z = pyro.sample("z", dist.Normal(z_loc, z_scale).to_event(1))
 
             # z -> x reconstruction. p(x|z,b) under "concat_x", p(x|z) otherwise.
-            mu = self.decoder_z_to_x(z, context=self._recon_context(batch_idx, x))
+            mu = self._decode_x(z, batch_idx)
 
             mu = softmax(mu, dim=-1)
             library_size = x.sum(axis=-1, keepdim=True)
@@ -356,23 +305,11 @@ class Decipher(nn.Module):
     def guide(self, x, batch_idx=None):
         pyro.module("decipher", self)
 
-        bc = self.config.batch_conditioning
-        mode = self.config.batch_embedding_mode
-        if bc != "none" and batch_idx is None:
-            batch_idx = x.new_zeros(x.shape[0]).long()
-        if bc == "decoder_encoder" and mode == "concat_z":
-            batch_vec = self.batch_emb(batch_idx)
-
         with pyro.plate("batch", len(x)), poutine.scale(scale=1.0):
             x = torch.log1p(x)
 
-            if bc == "decoder_encoder" and mode == "concat_z":
-                z_loc, z_scale = self.encoder_x_to_z(torch.cat([x, batch_vec], dim=-1))
-            else:
-                # _encoder_context is None unless this is concat_x with a conditioned guide.
-                z_loc, z_scale = self.encoder_x_to_z(x, context=self._encoder_context(batch_idx, x))
-                if bc == "decoder_encoder" and mode == "additive":
-                    z_loc = z_loc + self._shift(self.batch_shift_post, batch_idx, x)
+            # Batch-blind unless the guide is batch-conditioned ("decoder_encoder").
+            z_loc, z_scale = self._encode_z(x, batch_idx)
             z_scale = softplus(z_scale) + self._epsilon
             posterior_z = dist.Normal(z_loc, z_scale).to_event(1)
             z = pyro.sample("z", posterior_z)
@@ -397,29 +334,24 @@ class Decipher(nn.Module):
         """encoder_x_to_z's output with the batch context held identical for every cell.
 
         Averaged over all n_batches contexts rather than pinned to a reference batch. Under
-        an additive table the reference is free -- it adds one constant vector to every cell,
-        so every distance and every rank correlation is unchanged by the choice. Under
         concatenation a different reference is a different *function*: cells move by different
         amounts and rho moves with them. Averaging removes the choice instead of requiring it
         to be recorded and held fixed across variants, and keeps every forward pass on a
-        context the encoder actually saw during training.
+        context the encoder actually saw during training. A batch-blind guide has no context to
+        hold, so its output is returned as is.
 
         `x` is already log1p'd.
         """
-        n_batches = self.config.n_batches
-        if n_batches == 0:
-            z, _ = self.encoder_x_to_z(x)
+        if not self._emb_in_encoder:
+            z, _ = self._encode_z(x, None)
             return z
 
         acc = None
-        for b in range(n_batches):
+        for b in range(self.config.n_batches):
             batch_idx = torch.full((x.shape[0],), b, dtype=torch.long)
-            if self.config.batch_embedding_mode == "concat_z":
-                zb, _ = self.encoder_x_to_z(torch.cat([x, self.batch_emb(batch_idx)], dim=-1))
-            else:  # concat_x
-                zb, _ = self.encoder_x_to_z(x, context=self._batch_context(batch_idx, x))
+            zb, _ = self._encode_z(x, batch_idx)
             acc = zb if acc is None else acc + zb
-        return acc / n_batches
+        return acc / self.config.n_batches
 
     @torch.no_grad()
     def compute_v_z_numpy(self, x: np.array, batch_idx=None):
@@ -432,16 +364,10 @@ class Decipher(nn.Module):
             decipher_z     = the same computation with the batch context held identical for
                              every cell, so all cells sit in one shared frame.
 
-        How "held identical" is realised depends on the mode: averaging the encoder over all
-        n_batches contexts under "concat_z"/"concat_x", and `_to_common_frame` (subtract the
-        cell's own row, add the mean row) under "additive". When the guide is batch-blind --
-        `batch_conditioning` of "none" or "decoder_only" -- there is no context to hold, and
-        the two coordinates are equal. That is correct rather than a regression: nothing was
-        added to z, so there is nothing to subtract.
-
-        Note this differs from standalone model1-add, which corrected its blind guide's output
-        using the *generative* table. Holding the context fixed is the rule here, and a blind
-        guide has no context.
+        "Held identical" means averaging the encoder over all n_batches contexts. When the guide
+        is batch-blind -- `batch_conditioning` of "none" or "decoder_only" -- there is no context
+        to hold, and the two coordinates are equal. That is correct rather than a regression:
+        nothing was added to z, so there is nothing to subtract.
 
         Parameters
         ----------
@@ -465,28 +391,10 @@ class Decipher(nn.Module):
         if type(x) == np.ndarray:
             x = torch.tensor(x, dtype=torch.float32)
 
-        if batch_idx is None:
-            batch_idx = torch.zeros(x.shape[0], dtype=torch.long)
-
         x = torch.log1p(x)
 
-        bc = self.config.batch_conditioning
-        mode = self.config.batch_embedding_mode
-
-        if bc != "decoder_encoder":
-            # the guide is batch-blind, so the two coordinates coincide
-            z_raw, _ = self.encoder_x_to_z(x)
-            z = z_raw
-        elif mode == "concat_z":
-            z_raw, _ = self.encoder_x_to_z(torch.cat([x, self.batch_emb(batch_idx)], dim=-1))
-            z = self._encoder_common_frame(x)
-        elif mode == "additive":
-            z_loc, _ = self.encoder_x_to_z(x)
-            z_raw = z_loc + self._shift(self.batch_shift_post, batch_idx, x)
-            z = self._to_common_frame(z_raw, self.batch_shift_post, batch_idx, x)
-        else:  # concat_x
-            z_raw, _ = self.encoder_x_to_z(x, context=self._batch_context(batch_idx, x))
-            z = self._encoder_common_frame(x)
+        z_raw, _ = self._encode_z(x, batch_idx)
+        z = self._encoder_common_frame(x)
 
         if self.config.mean_field_v:
             v_loc, _ = self.encoder_zx_to_v(x)
@@ -509,7 +417,7 @@ class Decipher(nn.Module):
         # guide() returns the raw (batch-containing) z, which is what decoder_z_to_x expects:
         # the observed counts still contain the batch effect.
         z_loc, _, _, _ = self.guide(x, batch_idx)
-        mu = self.decoder_z_to_x(z_loc, context=self._recon_context(batch_idx, z_loc))
+        mu = self._decode_x(z_loc, batch_idx)
         mu = softmax(mu, dim=-1)
         library_size = x.sum(axis=-1, keepdim=True)
         return (library_size * mu).detach().numpy()

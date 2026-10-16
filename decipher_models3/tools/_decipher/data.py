@@ -82,9 +82,30 @@ def decipher_load_model(adata):
     model_run_id = adata.uns["decipher"]["run_id"]
     save_folder = DECIPHER_GLOBALS["save_folder"]
     full_path = os.path.join(save_folder, model_run_id)
-    model.load_state_dict(torch.load(os.path.join(full_path, "decipher_model.pt")))
+    state_dict = torch.load(os.path.join(full_path, "decipher_model.pt"))
+    _check_not_one_hot_concat_x(model, state_dict)
+    model.load_state_dict(state_dict)
     model.eval()
     return model
+
+
+def _check_not_one_hot_concat_x(model: Decipher, state_dict: dict) -> None:
+    """Raise when a concat_x checkpoint predates the shared batch embedding.
+
+    `decipher_models` / `decipher_models2` built concat_x (model4-6) with a fixed one-hot batch
+    context and no `batch_emb` table, so their state_dicts lack `batch_emb.weight` and their
+    first-layer widths differ. Without this check `load_state_dict` fails with a list of shape
+    mismatches that does not say why.
+    """
+    if model.config.batch_embedding_mode != "concat_x" or model.batch_emb is None:
+        return
+    if "batch_emb.weight" not in state_dict:
+        raise ValueError(
+            "This checkpoint is a one-hot concat_x model (model4-6) from decipher_models or "
+            "decipher_models2: it has no `batch_emb.weight`, while decipher_models3's concat_x "
+            "arms use a learned shared batch embedding. Load it with `decipher_models` "
+            "(or `decipher_m5` for model5), the package that trained it."
+        )
 
 
 def make_data_loader_from_adata(adata, batch_size=64, context_discrete_keys=None, **kwargs):
