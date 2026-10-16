@@ -187,7 +187,7 @@ def decipher(
                 ax.set_ylabel(y_label)
             else:
                 ax.set_ylabel(None)
-            if i // ncols == (len(color) - 1) // ncols:
+            if i // ncols == (len(color_list) - 1) // ncols:
                 ax.set_xlabel(x_label)
             else:
                 ax.set_xlabel(None)
