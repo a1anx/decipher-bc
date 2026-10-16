@@ -1,0 +1,116 @@
+{
+  "dataset": "oetjen5",
+  "src": "Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad",
+  "scdecipher": "0.1.2",
+  "seed": 0,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 0,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 6472,
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "h5ad_sha256": "9571cd270fd6631da163b539d183cdbe2f4da361ae906fa050b3acb140d16d91",
+  "h5ad_sha256_matches": true,
+  "n_cells": 7191,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-01-32-59-adaptive-coal-rectilinear",
+  "r2_overall": 0.8819690296538084,
+  "r2_median_per_gene": 0.3068943116597065,
+  "sanity_pass": true,
+  "n_epochs_run": 67,
+  "best_epoch": 56,
+  "final_val_nll": 1094.130128650904,
+  "pca/batch_asw": 0.8567643165588379,
+  "pca/graph_ilisi": 0.010130453951877394,
+  "pca/graph_connectivity": 0.9983325300098693,
+  "v/batch_asw": 0.7384559008861006,
+  "v/graph_ilisi": 0.2158644334412177,
+  "v/graph_connectivity": 0.8535479050757386,
+  "z/batch_asw": 0.7490198655845509,
+  "z/graph_ilisi": 0.012226432908491847,
+  "z/graph_connectivity": 0.9959086050210173,
+  "v/trajectory_conservation/erythroid": 0.6457993622337803,
+  "z/trajectory_conservation/erythroid": 0.9607260864706418,
+  "v/decipher_time_conservation/erythroid": 0.8067992394225764,
+  "v/trajectory_conservation/myeloid": 0.6072394322805479,
+  "z/trajectory_conservation/myeloid": 0.9151612942303241,
+  "v/decipher_time_conservation/myeloid": 0.8669433425712307,
+  "rotation": [
+    [
+      -0.9594929736144974,
+      -0.28173255684142967
+    ],
+    [
+      -0.28173255684142967,
+      0.9594929736144974
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "17",
+      "22",
+      "28",
+      "21",
+      "10",
+      "20",
+      "23"
+    ],
+    "myeloid": [
+      "17",
+      "9",
+      "22",
+      "25",
+      "29",
+      "27",
+      "14"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "17",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "23",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "17",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "14",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "wandb_url": "https://wandb.ai/jpark-columbia/decipher-bc-oetjen/runs/6xrnorrq",
+  "seconds": {
+    "load": 2.8,
+    "train": 233.0,
+    "rotate": 0.4,
+    "decipher_time": 18.2,
+    "metrics": 56.6,
+    "reconstruction": 1.1,
+    "vspace_png": 0.4,
+    "save": 0.2
+  },
+  "seconds_per_epoch": 3.48
+}

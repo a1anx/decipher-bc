@@ -1,0 +1,141 @@
+{
+  "package": "decipher_m5",
+  "preset": "model5",
+  "seed": 1,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 1,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 7962,
+    "batch_conditioning": "decoder_encoder",
+    "mean_field_v": false,
+    "n_batches": 6,
+    "batch_key": "batch",
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "A",
+    "U",
+    "J",
+    "M",
+    "P",
+    "G"
+  ],
+  "h5ad_sha256": "2d00ccb59be49be8f060d2e95e9c23be720c233b8ac1507489af8ea34d22678d",
+  "h5ad_sha256_matches": true,
+  "n_cells": 8845,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-00-44-42-balanced-cream-resonnt",
+  "weights_from": "best val-NLL epoch (decipher_m5 restore)",
+  "r2_overall": 0.8888857350228251,
+  "r2_median_per_gene": 0.37134989602426133,
+  "sanity_pass": true,
+  "n_epochs_run": 65,
+  "best_epoch": 54,
+  "best_val_nll": 1010.3010334088335,
+  "final_val_nll": 1011.2221828992073,
+  "pca/batch_asw": 0.8881358504295349,
+  "pca/graph_ilisi": 0.07498562136708413,
+  "pca/graph_connectivity": 0.9988455290857711,
+  "v/batch_asw": 0.793146937683145,
+  "v/graph_ilisi": 0.37471874461387944,
+  "v/graph_connectivity": 0.8949614990340472,
+  "z/batch_asw": 0.8286572565593536,
+  "z/graph_ilisi": 0.2679838235591328,
+  "z/graph_connectivity": 0.9541463892164783,
+  "v/trajectory_conservation/erythroid": 0.7772628878788692,
+  "z/trajectory_conservation/erythroid": 0.9632628334716182,
+  "v/decipher_time_conservation/erythroid": 0.9366454760541203,
+  "v/trajectory_conservation/myeloid": 0.6171628920390394,
+  "z/trajectory_conservation/myeloid": 0.9662414381485964,
+  "v/decipher_time_conservation/myeloid": 0.8846105686826937,
+  "batch_shift_norm": {
+    "A": 15.898900032043457,
+    "U": 17.55820083618164,
+    "J": 16.95490074157715,
+    "M": 16.115999221801758,
+    "P": 16.398300170898438,
+    "G": 16.719100952148438
+  },
+  "rotation": [
+    [
+      -0.7860530947427874,
+      -0.6181589862206053
+    ],
+    [
+      0.6181589862206053,
+      -0.7860530947427874
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "4",
+      "25",
+      "20",
+      "0",
+      "23",
+      "9",
+      "8",
+      "11",
+      "10",
+      "6",
+      "21"
+    ],
+    "myeloid": [
+      "4",
+      "25",
+      "18",
+      "15",
+      "16"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "4",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "21",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "4",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "16",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "wandb_url": "https://wandb.ai/jpark-columbia/decipher-bc-oetjen/runs/8b2cj4jw",
+  "seconds": {
+    "load": 3.5,
+    "train": 290.3,
+    "rotate": 1.0,
+    "decipher_time": 47.4,
+    "metrics": 100.2,
+    "reconstruction": 1.2,
+    "vspace_png": 0.5,
+    "save": 0.3
+  },
+  "seconds_per_epoch": 4.47
+}

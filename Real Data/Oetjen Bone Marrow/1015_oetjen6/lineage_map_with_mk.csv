@@ -1,0 +1,17 @@
+cell_type,lineage,rank
+HSPCs,HSC,0
+Megakaryocyte progenitors,erythroid,1
+Erythroid progenitors,erythroid,2
+Erythrocytes,erythroid,3
+Monocyte progenitors,myeloid,1
+CD14+ Monocytes,myeloid,2
+CD16+ Monocytes,myeloid,3
+CD10+ B cells,lymphoid,1
+CD20+ B cells,lymphoid,2
+CD4+ T cells,exclude,
+CD8+ T cells,exclude,
+NK cells,exclude,
+NKT cells,exclude,
+Plasma cells,exclude,
+Monocyte-derived dendritic cells,exclude,
+Plasmacytoid dendritic cells,exclude,
