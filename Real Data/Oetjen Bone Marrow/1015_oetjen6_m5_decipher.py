@@ -1,22 +1,24 @@
-"""decipher_m5 model5 (batch = `sample`) on an Oetjen shared h5ad.
+"""decipher_m5 model5 or model5e (batch = `sample`) on an Oetjen shared h5ad.
 
 Same framework as `1015_oetjen6_native_decipher.py`, whose helpers and constants are imported from
 that file by path so the two runs share one definition of the data, rotation, trajectories, scIB
 metrics and figures. One process per seed: train -> rotate -> decipher time -> scIB metrics on v
 and z -> reconstruction diagnostic -> v-space PNG.
-Run from the repo root with the repo venv. oetjen6 (defaults):
+`--preset {model5,model5e}` (default model5) picks the arm. Run from the repo root with the repo
+venv. oetjen6 (defaults):
     OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python \
         "Real Data/Oetjen Bone Marrow/1015_oetjen6_m5_decipher.py" --seed 0
-oetjen5:
+model5e: add `--preset model5e` (and a different `--out-dir`). oetjen5:
     OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python \
         "Real Data/Oetjen Bone Marrow/1015_oetjen6_m5_decipher.py" --seed 0 \
         --src "Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad" --dataset oetjen5 \
         --out-dir "Real Data/Oetjen Bone Marrow/1016_oetjen5_m5"
 `--src` / `--dataset` behave as in the native script (sha256 from `<src stem>.sha256`; dataset in
-the wandb config and tags, the run name `model5_<dataset>_seed<k>` and the plot title).
+the wandb config and tags, the run name `<preset>_<dataset>_seed<k>` and the plot title).
 
 What differs from the native run:
-    model           `decipher_m5` preset `model5` (batch enters encoder_x_to_z and decoder_z_to_x)
+    model           `decipher_m5` preset `model5` (batch enters encoder_x_to_z and decoder_z_to_x
+                    as two tables) or `model5e` (one shared zero-init embedding, concatenated)
     batch           `obs["batch"]` = `obs["sample"]` (one level per sample), `batch_key="batch"`
     weights kept    the lowest-val-NLL epoch (`decipher_m5` restores it; native keeps the last)
     losses          read from `decipher.train_losses_` / `val_losses_` (same per-cell units as the
@@ -27,8 +29,10 @@ What differs from the native run:
 The split is the file's own 90/10 `split` column, as in the native run (same train/val cells).
 
 Writes under --out-dir (default `1015_oetjen6_m5/` next to this script) the native file layout,
-plus in `seed<k>_meta.json`: batch_key, batch levels, best epoch and the L2 norm of each sample's
-decoder shift row (`batch_ctx_dec.weight`), a cheap "how much batch did model5 absorb" number.
+plus in `seed<k>_meta.json`: preset, batch_key, batch levels, best epoch and `batch_shift_norm`, the
+L2 norm of each sample's per-gene logit shift (model5: the `batch_ctx_dec.weight` row; model5e:
+`W_e e_b`), a cheap "how much batch did the model absorb" number. model5e also writes
+`batch_emb_norm` (L2 norm of each e_b).
 """
 
 import argparse
@@ -47,9 +51,39 @@ _spec = importlib.util.spec_from_file_location(
 native = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(native)
 
-PRESET = "model5"
+PRESET_CHOICES = ("model5", "model5e")
 BATCH_COL = "batch"
-WANDB = {"entity": "jpark-columbia", "project": "decipher-bc-oetjen", "group": "m5-model5"}
+WANDB = {"entity": "jpark-columbia", "project": "decipher-bc-oetjen"}
+
+
+def batch_shift_norms(decipher, preset: str, batch_levels: list[str]) -> dict[str, float]:
+    """L2 norm per batch level of the per-gene logit shift the trained model applies for that batch.
+
+    model5: row b of `batch_ctx_dec.weight` (B x G). model5e: `W_e @ e_b` with
+    `W_e = decoder_z_to_x.layers[0].weight[:, dim_z:]` and `e_b` row b of the shared `batch_emb`;
+    this is the shift only when `layers_z_to_x` is empty, otherwise it raises."""
+    if preset == "model5":
+        shift = decipher.batch_ctx_dec.weight.detach().cpu().numpy()  # B x G
+    elif preset == "model5e":
+        if len(decipher.config.layers_z_to_x) != 0:
+            raise ValueError(
+                "model5e batch shift is W_e e_b only for layers_z_to_x=(); got "
+                f"{tuple(decipher.config.layers_z_to_x)}"
+            )
+        w = decipher.decoder_z_to_x.layers[0].weight.detach().cpu().numpy()  # G x (dim_z + d_e)
+        emb = decipher.batch_emb.weight.detach().cpu().numpy()  # B x d_e
+        shift = emb @ w[:, decipher.config.dim_z :].T  # B x G
+    else:
+        raise ValueError(f"unknown preset {preset!r}; expected one of {PRESET_CHOICES}")
+    if len(batch_levels) != shift.shape[0]:
+        raise ValueError(f"{len(batch_levels)} batch levels but {shift.shape[0]} batch rows")
+    return dict(zip(batch_levels, np.linalg.norm(shift, axis=1).round(4).tolist()))
+
+
+def batch_emb_norms(decipher, batch_levels: list[str]) -> dict[str, float]:
+    """L2 norm of each batch's shared embedding e_b (model5e)."""
+    emb = decipher.batch_emb.weight.detach().cpu().numpy()
+    return dict(zip(batch_levels, np.linalg.norm(emb, axis=1).round(4).tolist()))
 
 
 def batch_from_sample(sample: pd.Series) -> pd.Series:
@@ -111,6 +145,7 @@ def scib_metrics(spaces: dict, obs: pd.DataFrame) -> tuple[pd.DataFrame, pd.Data
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--seed", type=int, required=True, help="decipher seed (init, batch order)")
+    parser.add_argument("--preset", choices=PRESET_CHOICES, default="model5")
     parser.add_argument("--max-epochs", type=int, default=1000)
     parser.add_argument("--no-wandb", action="store_true")
     parser.add_argument("--out-dir", type=Path, default=HERE / "1015_oetjen6_m5")
@@ -157,7 +192,7 @@ def main() -> None:
     adata.obs[BATCH_COL] = batch_from_sample(adata.obs["sample"])
     batch_levels = [str(c) for c in adata.obs[BATCH_COL].cat.categories]
     config = dc.tl.DecipherConfig(
-        **PRESETS[PRESET],
+        **PRESETS[args.preset],
         seed=args.seed,
         learning_rate=native.LEARNING_RATE,
         beta=native.BETA,
@@ -171,13 +206,14 @@ def main() -> None:
         assert hasattr(wandb, "init"), f"`wandb` resolved to a non-package: {wandb.__path__}"
         run = wandb.init(
             **WANDB,
-            name=f"{PRESET}_{args.dataset}_{tag}",
+            group=f"m5-{args.preset}",
+            name=f"{args.preset}_{args.dataset}_{tag}",
             dir=str(out),
             tags=[args.dataset],
             config={
                 "dataset": args.dataset,
                 "package": "decipher_m5",
-                "preset": PRESET,
+                "preset": args.preset,
                 "seed": args.seed,
                 **config.to_dict(),
                 "batch_key": BATCH_COL,
@@ -262,7 +298,7 @@ def main() -> None:
         r2 = dc.tl.reconstruction_r2_log1p(decipher, adata)
     r2_median = float(np.nanmedian(r2["r2_per_gene"]))
     fig = native.plot_reconstruction(
-        loss, r2, f"{args.dataset} decipher_m5 model5, seed {args.seed}"
+        loss, r2, f"{args.dataset} decipher_m5 {args.preset}, seed {args.seed}"
     )
     recon_png = out / "reconstruction" / f"{tag}_recon.png"
     fig.savefig(recon_png, dpi=120)
@@ -301,8 +337,12 @@ def main() -> None:
     table.index.name = "cell_id"
     table.to_csv(out / "csv" / f"{tag}_vspace.csv")
 
-    shift = decipher.batch_ctx_dec.weight.detach().cpu().numpy()  # B x G
-    shift_norms = dict(zip(batch_levels, np.linalg.norm(shift, axis=1).round(4).tolist()))
+    shift_norms = batch_shift_norms(decipher, args.preset, batch_levels)
+    emb_norms = (
+        {"batch_emb_norm": batch_emb_norms(decipher, batch_levels)}
+        if args.preset == "model5e"
+        else {}
+    )
     metric_summary = {
         f"{r.space}/{r.metric}" + ("" if r.branch == "all" else f"/{r.branch}"): r.value
         for r in metrics.itertuples()
@@ -321,13 +361,13 @@ def main() -> None:
         run.log(
             {"reconstruction": wandb.Image(str(recon_png)), "vspace": wandb.Image(str(vspace_png))}
         )
-        run.summary.update({**summary, "batch_shift_norm": shift_norms})
+        run.summary.update({**summary, "batch_shift_norm": shift_norms, **emb_norms})
     lap("save")
     meta = {
         "dataset": args.dataset,
         "src": str(args.src),
         "package": "decipher_m5",
-        "preset": PRESET,
+        "preset": args.preset,
         "seed": args.seed,
         "config": config.to_dict(),
         "batch_key": BATCH_COL,
@@ -341,6 +381,7 @@ def main() -> None:
         "weights_from": "best val-NLL epoch (decipher_m5 restore)",
         **summary,
         "batch_shift_norm": shift_norms,
+        **emb_norms,
         "rotation": adata.uns["decipher"]["rotation"].tolist(),
         "trajectory_cluster_ids": paths,
         "sanity": sanity,
