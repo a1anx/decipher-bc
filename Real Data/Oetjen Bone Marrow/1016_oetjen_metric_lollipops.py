@@ -1,9 +1,9 @@
-"""Native vs model5 metric lollipops for oetjen5 and oetjen6, one PNG per dataset.
+"""Native vs model5 vs model5e metric lollipops for oetjen5 and oetjen6, one PNG per dataset.
 
-Reads ``<run dir>/csv/seed<k>_metrics.csv`` (k = 0, 1, 2) from each dataset's native and m5
+Reads ``<run dir>/csv/seed<k>_metrics.csv`` (k = 0, 1, 2) from each dataset's native, m5 and m5e
 folders. One panel per (space, metric, branch) row on v and z (decipher_time_conservation left
 out). Each panel has its own y axis, shared with the same panel in the other dataset's PNG. A panel
-has two vertical lollipops, native and model5: the stem runs from the lowest to the highest
+has three vertical lollipops, native, model5 and model5e: the stem runs from the lowest to the highest
 seed and the three seeds are 50%-transparent circles on it, all one colour, so overlapping seeds
 show as a darker dot. Rows: v batch, z batch, erythroid branch, myeloid branch.
 
@@ -22,10 +22,10 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 DATASETS = {
-    "oetjen5": ("1016_oetjen5_native", "1016_oetjen5_m5"),
-    "oetjen6": ("1015_oetjen6_native", "1015_oetjen6_m5"),
+    "oetjen5": ("1016_oetjen5_native", "1016_oetjen5_m5", "1016_oetjen5_m5e"),
+    "oetjen6": ("1015_oetjen6_native", "1015_oetjen6_m5", "1016_oetjen6_m5e"),
 }
-MODELS = ["native", "model5"]
+MODELS = ["native", "model5", "model5e"]
 SEEDS = [0, 1, 2]
 DOT = "#2a78d6"
 STEM = "#8a8984"
@@ -98,7 +98,9 @@ def plot(dataset: str, df: pd.DataFrame, limits: dict) -> Path:
             ax.set_visible(False)
         for ax, key in zip(row, keys):
             panel(ax, df, key, limits[key])
-    fig.suptitle(f"{dataset}: native vs model5, one dot per decipherseed (0, 1, 2)", fontsize=13)
+    fig.suptitle(
+        f"{dataset}: native vs model5 vs model5e, one dot per decipherseed (0, 1, 2)", fontsize=13
+    )
     out = HERE / f"1016_{dataset}_metric_lollipops.png"
     fig.savefig(out, dpi=150, facecolor="white")
     plt.close(fig)
