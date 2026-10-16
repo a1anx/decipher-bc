@@ -5,6 +5,7 @@ packages = [
   {include = "decipher_models", from = "."},
   {include = "decipher_models2", from = "."},
   {include = "decipher_m5", from = "."},
+  {include = "decipher_models3", from = "."},
 ]
 
 [tool.poetry.dependencies]
