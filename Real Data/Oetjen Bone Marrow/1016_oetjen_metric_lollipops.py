@@ -1,7 +1,7 @@
 """Native vs model5 vs model5e metric lollipops for oetjen5 and oetjen6, one PNG per dataset.
 
 Reads ``<run dir>/csv/seed<k>_metrics.csv`` (k = 0, 1, 2) from each dataset's native, m5 and m5e
-folders. One panel per (space, metric, branch) row on v and z (decipher_time_conservation left
+folders (and m5e16, batch-embedding size 16, when asked for). One panel per (space, metric, branch) row on v and z (decipher_time_conservation left
 out). Each panel has its own y axis, shared with the same panel in the other dataset's PNG. A panel
 has three vertical lollipops, native, model5 and model5e: the stem runs from the lowest to the highest
 seed and the three seeds are 50%-transparent circles on it, all one colour, so overlapping seeds
@@ -11,7 +11,8 @@ Run from the repo root:
     .venv/bin/python "Real Data/Oetjen Bone Marrow/1016_oetjen_metric_lollipops.py"
 Writes ``1016_<dataset>_metric_lollipops.png`` next to this script. ``--models native model5e``
 draws only those lollipops (y ranges from them alone) to
-``1016_<dataset>_metric_lollipops_native-model5e.png``.
+``1016_<dataset>_metric_lollipops_native-model5e.png``; ``--models native model5e model5e16``
+compares embedding sizes 8 and 16.
 """
 
 import argparse
@@ -25,10 +26,13 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 DATASETS = {
-    "oetjen5": ("1016_oetjen5_native", "1016_oetjen5_m5", "1016_oetjen5_m5e"),
-    "oetjen6": ("1015_oetjen6_native", "1015_oetjen6_m5", "1016_oetjen6_m5e"),
+    "oetjen5": ("1016_oetjen5_native", "1016_oetjen5_m5", "1016_oetjen5_m5e", "1016_oetjen5_m5e16"),
+    "oetjen6": ("1015_oetjen6_native", "1015_oetjen6_m5", "1016_oetjen6_m5e", "1016_oetjen6_m5e16"),
 }
-MODELS = ["native", "model5", "model5e"]
+MODELS = ["native", "model5", "model5e", "model5e16"]
+DEFAULT_MODELS = ["native", "model5", "model5e"]
+# model5e is batch-embedding size d_e = 8 (package default), model5e16 is d_e = 16
+TICKS = {"model5e": "model5e\n(d_e=8)", "model5e16": "model5e\n(d_e=16)"}
 SEEDS = [0, 1, 2]
 DOT = "#2a78d6"
 STEM = "#8a8984"
@@ -48,10 +52,12 @@ ROWS = [
 ]
 
 
-def load(dataset: str) -> pd.DataFrame:
-    """Long table of every metric row with model and seed columns."""
+def load(dataset: str, models: list[str]) -> pd.DataFrame:
+    """Long table of every metric row of ``models`` with model and seed columns."""
     frames = []
     for model, folder in zip(MODELS, DATASETS[dataset]):
+        if model not in models:
+            continue
         for seed in SEEDS:
             df = pd.read_csv(HERE / folder / "csv" / f"seed{seed}_metrics.csv")
             frames.append(df.assign(model=model, seed=seed))
@@ -85,7 +91,7 @@ def panel(
         ax.scatter([x] * len(m), m.value, s=60, color=DOT, alpha=0.5, linewidth=0, zorder=3)
     branch_txt = "" if branch == "all" else f"\n{branch} branch"
     ax.set_title(f"{metric} ({space}){branch_txt}", fontsize=10, color="#0b0b0b")
-    ax.set_xticks(range(len(models)), models)
+    ax.set_xticks(range(len(models)), [TICKS.get(m, m) for m in models])
     ax.set_xlim(-0.6, len(models) - 0.4)
     ax.tick_params(colors=TEXT, labelsize=9)
     ax.grid(axis="y", color="#e4e3df", lw=0.6)
@@ -106,7 +112,7 @@ def plot(dataset: str, df: pd.DataFrame, limits: dict, models: list[str]) -> Pat
     fig.suptitle(
         f"{dataset}: {' vs '.join(models)}, one dot per decipherseed (0, 1, 2)", fontsize=13
     )
-    suffix = "" if models == MODELS else "_" + "-".join(models)
+    suffix = "" if models == DEFAULT_MODELS else "_" + "-".join(models)
     out = HERE / f"1016_{dataset}_metric_lollipops{suffix}.png"
     fig.savefig(out, dpi=150, facecolor="white")
     plt.close(fig)
@@ -115,10 +121,9 @@ def plot(dataset: str, df: pd.DataFrame, limits: dict, models: list[str]) -> Pat
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--models", nargs="+", choices=MODELS, default=MODELS)
+    parser.add_argument("--models", nargs="+", choices=MODELS, default=DEFAULT_MODELS)
     models = [m for m in MODELS if m in parser.parse_args().models]
-    frames = {dataset: load(dataset) for dataset in DATASETS}
-    frames = {dataset: df[df.model.isin(models)] for dataset, df in frames.items()}
+    frames = {dataset: load(dataset, models) for dataset in DATASETS}
     limits = ylims(list(frames.values()))
     for dataset, df in frames.items():
         print(plot(dataset, df, limits, models))

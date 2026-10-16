@@ -1,0 +1,154 @@
+{
+  "dataset": "oetjen6",
+  "src": "/home/jihyunpark/decipher-bc/Real Data/Oetjen Bone Marrow/1015_oetjen6/oetjen6_shared.h5ad",
+  "package": "decipher_m5",
+  "preset": "model5e",
+  "seed": 1,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 1,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 7962,
+    "batch_conditioning": "decoder_encoder",
+    "batch_context": "embedding",
+    "dim_batch_embedding": 16,
+    "mean_field_v": false,
+    "n_batches": 6,
+    "batch_key": "batch",
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "A",
+    "U",
+    "J",
+    "M",
+    "P",
+    "G"
+  ],
+  "h5ad_sha256": "2d00ccb59be49be8f060d2e95e9c23be720c233b8ac1507489af8ea34d22678d",
+  "h5ad_sha256_matches": true,
+  "n_cells": 8845,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-16-36-57-rubbery-cerulean-bridge",
+  "weights_from": "best val-NLL epoch (decipher_m5 restore)",
+  "r2_overall": 0.8872532196220951,
+  "r2_median_per_gene": 0.3645180706754358,
+  "sanity_pass": true,
+  "n_epochs_run": 65,
+  "best_epoch": 54,
+  "best_val_nll": 1010.80018403171,
+  "final_val_nll": 1014.0399915062287,
+  "pca/batch_asw": 0.8881358504295349,
+  "pca/graph_ilisi": 0.07498562136708413,
+  "pca/graph_connectivity": 0.9988455290857711,
+  "v/batch_asw": 0.7559862381853276,
+  "v/graph_ilisi": 0.40484251021232226,
+  "v/graph_connectivity": 0.9377720696865902,
+  "z/batch_asw": 0.8220043890760295,
+  "z/graph_ilisi": 0.27255245245759846,
+  "z/graph_connectivity": 0.9509992302663021,
+  "v/trajectory_conservation/erythroid": 0.8137429125438718,
+  "z/trajectory_conservation/erythroid": 0.42438060607964356,
+  "v/decipher_time_conservation/erythroid": 0.9624785456214694,
+  "v/trajectory_conservation/myeloid": 0.8933955939477117,
+  "z/trajectory_conservation/myeloid": 0.9625334257841408,
+  "v/decipher_time_conservation/myeloid": 0.9507379696129237,
+  "batch_shift_norm": {
+    "A": 75.95179748535156,
+    "U": 84.1885986328125,
+    "J": 80.81109619140625,
+    "M": 80.7301025390625,
+    "P": 82.216796875,
+    "G": 81.39869689941406
+  },
+  "batch_emb_norm": {
+    "A": 1.9644999504089355,
+    "U": 2.231800079345703,
+    "J": 2.084399938583374,
+    "M": 2.2509000301361084,
+    "P": 1.9983999729156494,
+    "G": 2.155100107192993
+  },
+  "rotation": [
+    [
+      0.9679487013963562,
+      0.2511479871810792
+    ],
+    [
+      -0.2511479871810792,
+      0.9679487013963562
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "21",
+      "19",
+      "1",
+      "18",
+      "4",
+      "3",
+      "9",
+      "17",
+      "12",
+      "10",
+      "15"
+    ],
+    "myeloid": [
+      "21",
+      "8",
+      "7",
+      "14",
+      "0",
+      "2"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "21",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "15",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "21",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "2",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "wandb_url": "https://wandb.ai/jpark-columbia/decipher-bc-oetjen/runs/9m7fp42y",
+  "seconds": {
+    "load": 3.5,
+    "train": 365.2,
+    "rotate": 1.3,
+    "decipher_time": 60.0,
+    "metrics": 104.7,
+    "reconstruction": 1.7,
+    "vspace_png": 0.9,
+    "save": 0.6
+  },
+  "seconds_per_epoch": 5.62
+}

@@ -146,6 +146,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--seed", type=int, required=True, help="decipher seed (init, batch order)")
     parser.add_argument("--preset", choices=PRESET_CHOICES, default="model5")
+    parser.add_argument(
+        "--dim-batch-embedding",
+        type=int,
+        default=None,
+        help="model5e embedding size d_e (default: the package's 8); adds _d<d_e> to wandb names",
+    )
     parser.add_argument("--max-epochs", type=int, default=1000)
     parser.add_argument("--no-wandb", action="store_true")
     parser.add_argument("--out-dir", type=Path, default=HERE / "1015_oetjen6_m5")
@@ -191,8 +197,17 @@ def main() -> None:
     del adata.layers["counts"]
     adata.obs[BATCH_COL] = batch_from_sample(adata.obs["sample"])
     batch_levels = [str(c) for c in adata.obs[BATCH_COL].cat.categories]
+    if args.dim_batch_embedding is not None and args.preset != "model5e":
+        parser.error("--dim-batch-embedding only applies to --preset model5e")
+    extra = (
+        {"dim_batch_embedding": args.dim_batch_embedding}
+        if args.dim_batch_embedding is not None
+        else {}
+    )
+    arm = args.preset + (f"_d{args.dim_batch_embedding}" if extra else "")
     config = dc.tl.DecipherConfig(
         **PRESETS[args.preset],
+        **extra,
         seed=args.seed,
         learning_rate=native.LEARNING_RATE,
         beta=native.BETA,
@@ -206,8 +221,8 @@ def main() -> None:
         assert hasattr(wandb, "init"), f"`wandb` resolved to a non-package: {wandb.__path__}"
         run = wandb.init(
             **WANDB,
-            group=f"m5-{args.preset}",
-            name=f"{args.preset}_{args.dataset}_{tag}",
+            group=f"m5-{arm}",
+            name=f"{arm}_{args.dataset}_{tag}",
             dir=str(out),
             tags=[args.dataset],
             config={
