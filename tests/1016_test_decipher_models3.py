@@ -379,3 +379,143 @@ def test_save_load_roundtrip_reproduces_the_model(arm, tmp_path, monkeypatch):
         model.compute_v_z_numpy(_P02_X, _P02_BATCH_IDX),
     ):
         np.testing.assert_array_equal(a, b)
+
+
+# --- P04: gene patterns ------------------------------------------------------------------------
+# `gene_patterns(adata, ..., batch=None)` for every arm, ported from
+# tests/1016_test_decipher_m5_gene_patterns.py. Trajectory points have no batch: the default averages
+# softmax(decode) uniformly over batches, `batch=` pins one batch or a subset. concat_z arms take
+# the batch in the prior v -> z, concat_x arms in the decoder z -> x. Untrained eval-mode models
+# with a randomized `batch_emb` (concat_x is zero-init), saved to tmp_path. No training.
+
+from decipher_models3.tools import gene_patterns  # noqa: E402
+
+_P04_BATCHES = ["b0", "b1", "b2"]
+_P04_L_SCALE = 10_000
+_P04_POINTS = np.array([[0.0, 0.0], [1.0, -0.5], [2.0, 1.0], [-1.0, 0.5]])
+_P04_RTOL, _P04_ATOL = 1e-5, 1e-6
+_P04_BATCH_ARMS = ["model1", "model2", "model3", "model4", "model5", "model6"]
+
+
+def _p04_build(preset):
+    """Untrained eval model of `preset`; a batch table, if any, gets random nonzero rows."""
+    config = DecipherConfig(**PRESETS_3[preset])
+    config.initialize_from_adata(_P02_ADATA, batch_key=_P02_BATCH_KEY)
+    pyro.clear_param_store()
+    pyro.util.set_rng_seed(0)
+    model = Decipher(config).eval()
+    if model.batch_emb is not None:
+        with torch.no_grad():
+            weight = model.batch_emb.weight
+            weight.copy_(torch.randn(weight.shape, generator=torch.Generator().manual_seed(1)))
+    return model
+
+
+@pytest.fixture
+def _p04_saved(tmp_path, monkeypatch):
+    """Return a function model -> AnnData with that model saved and one trajectory 't'."""
+    monkeypatch.setitem(_P02_GLOBALS_3, "save_folder", str(tmp_path))
+
+    def _saved(model):
+        adata = _P02_ADATA.copy()
+        _p02_data_3.decipher_save_model(adata, model)
+        adata.uns["decipher"]["trajectories"] = {
+            "t": {"points": _P04_POINTS, "times": np.arange(len(_P04_POINTS), dtype=float)}
+        }
+        return adata
+
+    return _saved
+
+
+def _p04_decode_mean(model, code):
+    """Expected `mean` for one batch code (None = batch-blind), from the networks themselves:
+    e_b goes into decoder_v_to_z under concat_z and into decoder_z_to_x under concat_x."""
+    v = torch.FloatTensor(_P04_POINTS)
+    with torch.no_grad():
+        if code is None:
+            z_loc, _ = model.decoder_v_to_z(v)
+            return torch.softmax(model.decoder_z_to_x(z_loc), -1).numpy() * _P04_L_SCALE
+        e = model.batch_emb(torch.full((len(v),), code, dtype=torch.long))
+        if model.config.batch_embedding_mode == "concat_z":
+            z_loc, _ = model.decoder_v_to_z(torch.cat([v, e], -1))
+            logits = model.decoder_z_to_x(z_loc)
+        else:
+            z_loc, _ = model.decoder_v_to_z(v)
+            logits = model.decoder_z_to_x(torch.cat([z_loc, e], -1))
+        return torch.softmax(logits, -1).numpy() * _P04_L_SCALE
+
+
+def _p04_pattern(adata, batch=None, n_samples=5):
+    gene_patterns(adata, l_scale=_P04_L_SCALE, n_samples=n_samples, batch=batch)
+    return adata.uns["decipher"]["gene_patterns"]["t"]
+
+
+@pytest.mark.parametrize("arm", _P04_BATCH_ARMS)
+def test_gene_patterns_default_mean_is_uniform_average_over_every_batch(_p04_saved, arm):
+    model = _p04_build(arm)
+    mean = _p04_pattern(_p04_saved(model))["mean"]
+    expected = np.mean([_p04_decode_mean(model, b) for b in range(len(_P04_BATCHES))], axis=0)
+    np.testing.assert_allclose(mean, expected, rtol=_P04_RTOL, atol=_P04_ATOL)
+
+
+@pytest.mark.parametrize("arm", _P04_BATCH_ARMS)
+def test_gene_patterns_single_batch_name_uses_that_batch_only(_p04_saved, arm):
+    model = _p04_build(arm)
+    mean = _p04_pattern(_p04_saved(model), batch="b2")["mean"]
+    np.testing.assert_allclose(mean, _p04_decode_mean(model, 2), rtol=_P04_RTOL, atol=_P04_ATOL)
+
+
+@pytest.mark.parametrize("arm", _P04_BATCH_ARMS)
+def test_gene_patterns_batch_list_averages_over_listed_batches(_p04_saved, arm):
+    model = _p04_build(arm)
+    mean = _p04_pattern(_p04_saved(model), batch=["b0", "b2"])["mean"]
+    expected = (_p04_decode_mean(model, 0) + _p04_decode_mean(model, 2)) / 2
+    np.testing.assert_allclose(mean, expected, rtol=_P04_RTOL, atol=_P04_ATOL)
+
+
+@pytest.mark.parametrize("arm", _P04_BATCH_ARMS)
+def test_gene_patterns_differ_between_batches(_p04_saved, arm):
+    adata = _p04_saved(_p04_build(arm))
+    as_b0 = _p04_pattern(adata, batch="b0")["mean"].copy()
+    as_b2 = _p04_pattern(adata, batch="b2")["mean"]
+    assert not np.allclose(as_b0, as_b2, rtol=_P04_RTOL, atol=_P04_ATOL)
+
+
+@pytest.mark.parametrize("arm", _P04_BATCH_ARMS)
+def test_gene_patterns_q_band_collapses_onto_mean_when_prior_scale_is_zero(_p04_saved, arm):
+    """With softplus(z_scale) ~ 0 every z sample is the per-batch prior mean, so each sample's
+    batch-averaged expression -- and so q25 and q75 -- must equal `mean`."""
+    model = _p04_build(arm)
+    head, d_z = model.decoder_v_to_z.layers[-1], model.config.dim_z
+    with torch.no_grad():
+        head.weight[d_z:] = 0.0
+        head.bias[d_z:] = -50.0
+    pattern = _p04_pattern(_p04_saved(model))
+    for q in ("q25", "q75"):
+        np.testing.assert_allclose(pattern[q], pattern["mean"], rtol=_P04_RTOL, atol=_P04_ATOL)
+
+
+@pytest.mark.parametrize("arm", _P04_BATCH_ARMS)
+def test_gene_patterns_q_band_is_one_row_per_point_with_q25_at_most_q75(_p04_saved, arm):
+    pattern = _p04_pattern(_p04_saved(_p04_build(arm)), n_samples=20)
+    assert pattern["q25"].shape == pattern["q75"].shape == (len(_P04_POINTS), _P02_N_GENES)
+    assert np.all(pattern["q25"] <= pattern["q75"])
+
+
+def test_gene_patterns_native_mean_is_the_batch_blind_decode(_p04_saved):
+    model = _p04_build("native")
+    mean = _p04_pattern(_p04_saved(model))["mean"]
+    np.testing.assert_allclose(mean, _p04_decode_mean(model, None), rtol=_P04_RTOL, atol=_P04_ATOL)
+
+
+@pytest.mark.parametrize("batch", ["nope", ["b0", "nope"], []])
+def test_gene_patterns_unknown_or_empty_batch_raises(_p04_saved, batch):
+    adata = _p04_saved(_p04_build("model2"))
+    with pytest.raises(ValueError):
+        _p04_pattern(adata, batch=batch)
+
+
+def test_gene_patterns_batch_on_native_model_raises(_p04_saved):
+    adata = _p04_saved(_p04_build("native"))
+    with pytest.raises(ValueError, match="not batch-conditioned"):
+        _p04_pattern(adata, batch="b0")
