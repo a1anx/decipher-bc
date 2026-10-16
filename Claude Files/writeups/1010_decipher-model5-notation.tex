@@ -1,0 +1,225 @@
+% Decipher and model5 (decipher_models2, decipher_m5) in the Decipher paper's notation.
+% Only new symbol relative to the paper: batch (and the batch-specific bias tables it indexes).
+% Code: decipher_models2/tools/_decipher/decipher.py, decipher_m5/tools/_decipher/decipher.py.
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,booktabs}
+\newcommand{\batch}{\mathrm{batch}}
+\newcommand{\dec}{\mathrm{dec}}
+\newcommand{\enc}{\mathrm{enc}}
+\newcommand{\one}{\mathbf{1}}
+\DeclareMathOperator{\softmax}{softmax}
+\DeclareMathOperator{\softplus}{softplus}
+\DeclareMathOperator{\ReLU}{ReLU}
+\DeclareMathOperator{\BN}{BN}
+\DeclareMathOperator{\diag}{diag}
+
+\title{Decipher and model5: generative model, guide and objective}
+\date{}
+
+\begin{document}
+\maketitle
+
+%--------------------------------------------------------------------------------------------
+\section{Notation}
+
+Cells $i = 1,\dots,N$; genes $g = 1,\dots,G$. Each cell has counts $x_i \in \mathbb{N}^G$ and
+library size $\ell_i = \sum_g x_{i,g}$ (observed, not a latent variable). Latent dimension
+$L = 10$; Decipher components $v_i \in \mathbb{R}^2$. $\varepsilon = 10^{-5}$ (numerical
+floor), $\beta = 0.1$.\footnote{As in the paper, $\beta$ here is the ELBO weight on the $v$
+term; it is unrelated to the basis-decomposition weights $\beta_{g,c,k}$.}
+
+\paragraph{New relative to the paper.} Each cell has a batch label
+$\batch_i \in \{1,\dots,B\}$, where $B$ is the number of batches (\texttt{config.n\_batches},
+counted from the categories of \texttt{adata.obs[batch\_key]}; $B = 0$ disables batch
+conditioning). $\one_{\batch} \in \{0,1\}^B$ is the one-hot vector of a batch.
+
+%--------------------------------------------------------------------------------------------
+\section{Decipher (paper; preset \texttt{native})}
+
+\subsection{Generative model}
+\[
+\begin{array}{lll}
+\theta_g & \triangleright\ \text{gene dispersion} & \in \mathbb{R}_{>0} \\
+h,\ f & \triangleright\ \text{decoder neural networks} & \\
+\hline
+v_i \sim \mathcal{N}(0, I_2) & \triangleright\ \text{Decipher components} & \in \mathbb{R}^2 \\
+z_i \sim \mathcal{N}\big(f_{\mathrm{mean}}(v_i),\ f_{\mathrm{var}}(v_i)\big)
+  & \triangleright\ \text{Decipher latent factors} & \in \mathbb{R}^L \approx \mathbb{R}^{10} \\
+\mu_{i,g} = h(z_i)_g & \triangleright\ \text{normalized gene expression} & \mu_i \in \mathbb{R}^G \\
+x_{i,g} \sim NB(\ell_i \cdot \mu_{i,g},\ \theta_g) & \triangleright\ \text{observed gene expression} & x_i \in \mathbb{R}^G
+\end{array}
+\]
+
+\subsection{Variational family}
+\[
+q(v, z) = \prod_{i=1}^{N} q(v_i \mid z_i, x_i)\; q(z_i \mid x_i),
+\]
+\begin{align*}
+q(z_i \mid x_i) &= \mathcal{N}\big(d^{\to z}_{\mathrm{mean}}(x_i),\ d^{\to z}_{\mathrm{var}}(x_i)\big), \\
+q(v_i \mid z_i, x_i) &= \mathcal{N}\big(d^{\to v}_{\mathrm{mean}}(x_i, z_i),\ d^{\to v}_{\mathrm{var}}(x_i, z_i)\big).
+\end{align*}
+
+\subsection{Objective}
+\[
+\mathrm{ELBO}(q) = \sum_{i=1}^{N} \mathbb{E}_{q(v_i, z_i)}\!\left[
+\sum_g \log p(x_{i,g} \mid z_i, \theta_g)
++ \log \frac{p(z_i \mid v_i)}{q(z_i \mid x_i)}
++ \beta \log \frac{p(v_i)}{q(v_i \mid z_i, x_i)}
+\right].
+\]
+
+%--------------------------------------------------------------------------------------------
+\section{model5 (preset \texttt{model5}; \texttt{decipher\_models2} and \texttt{decipher\_m5})}
+
+model5 adds two edges to Decipher: $\batch \to x$ in the generative model and
+$\batch \to z$ in the guide. The prior chain $v \to z$ is unchanged (no $\batch \to z$ edge in
+the prior), so $z_i$ is permitted, not required, to carry batch.
+
+\subsection{Generative model}
+\[
+\begin{array}{lll}
+\theta_g & \triangleright\ \text{gene dispersion} & \in \mathbb{R}_{>0} \\
+h,\ f & \triangleright\ \text{decoder neural networks} & \\
+\hline
+v_i \sim \mathcal{N}(0, I_2) & \triangleright\ \text{Decipher components} & \in \mathbb{R}^2 \\
+z_i \sim \mathcal{N}\big(f_{\mathrm{mean}}(v_i),\ f_{\mathrm{var}}(v_i)\big)
+  & \triangleright\ \text{Decipher latent factors} & \in \mathbb{R}^L \approx \mathbb{R}^{10} \\
+\mu_{i,g} = h(z_i, \batch_i)_g & \triangleright\ \text{normalized gene expression} & \mu_i \in \mathbb{R}^G \\
+x_{i,g} \sim NB(\ell_i \cdot \mu_{i,g},\ \theta_g) & \triangleright\ \text{observed gene expression} & x_i \in \mathbb{R}^G
+\end{array}
+\]
+so that
+\[
+p(x_i, z_i, v_i \mid \batch_i) = p(v_i)\; p(z_i \mid v_i)\; \prod_g p(x_{i,g} \mid z_i, \batch_i, \theta_g).
+\]
+
+\subsection{Variational family}
+\[
+q(v, z) = \prod_{i=1}^{N} q(v_i \mid z_i, x_i)\; q(z_i \mid x_i, \batch_i),
+\]
+\begin{align*}
+q(z_i \mid x_i, \batch_i) &= \mathcal{N}\big(d^{\to z}_{\mathrm{mean}}(x_i, \batch_i),\ d^{\to z}_{\mathrm{var}}(x_i, \batch_i)\big), \\
+q(v_i \mid z_i, x_i) &= \mathcal{N}\big(d^{\to v}_{\mathrm{mean}}(x_i, z_i),\ d^{\to v}_{\mathrm{var}}(x_i, z_i)\big).
+\end{align*}
+The $v$-encoder has no batch input (\texttt{mean\_field\_v = False}); $\batch_i$ reaches $v_i$
+only through $z_i$.
+
+\subsection{Objective}
+\[
+\mathrm{ELBO}(q) = \sum_{i=1}^{N} \mathbb{E}_{q(v_i, z_i)}\!\left[
+\sum_g \log p(x_{i,g} \mid z_i, \batch_i, \theta_g)
++ \log \frac{p(z_i \mid v_i)}{q(z_i \mid x_i, \batch_i)}
++ \beta \log \frac{p(v_i)}{q(v_i \mid z_i, x_i)}
+\right].
+\]
+Estimated with one reparameterized sample per cell (Pyro \texttt{Trace\_ELBO}), summed over
+minibatches of 64 cells. Validation log-likelihood sets $\beta = 1$.
+
+\subsection{What each variable is conditioned on}
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Factor & Conditioned on & Dependence on $\batch_i$ \\
+\midrule
+$p(v_i)$ & nothing & none \\
+$p(z_i \mid v_i)$ & $v_i$ & none \\
+$p(x_{i,g} \mid z_i, \batch_i, \theta_g)$ & $z_i,\ \batch_i,\ \ell_i,\ \theta_g$ & enters $h$ \\
+$q(z_i \mid x_i, \batch_i)$ & $x_i,\ \batch_i$ & enters $d^{\to z}$ (mean and variance) \\
+$q(v_i \mid z_i, x_i)$ & $z_i,\ x_i$ & only through $z_i$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Changes relative to Decipher}
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Decipher & model5 & \\
+\midrule
+$p(v_i) = \mathcal{N}(0, I_2)$ & unchanged & \\
+$p(z_i \mid v_i)$ via $f$ & unchanged & \\
+$\mu_{i,g} = h(z_i)_g$ & $\mu_{i,g} = h(z_i, \batch_i)_g$ & added $\batch \to x$ \\
+$q(z_i \mid x_i)$ via $d^{\to z}(x_i)$ & $q(z_i \mid x_i, \batch_i)$ via $d^{\to z}(x_i, \batch_i)$ & added $\batch \to z$ (guide) \\
+$q(v_i \mid z_i, x_i)$ via $d^{\to v}$ & unchanged & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%--------------------------------------------------------------------------------------------
+\section{Network parameterization}
+
+Default sizes: $f$ has one hidden layer of 64 units, $d^{\to z}$ and $d^{\to v}$ one of 128,
+and $h$ none (\texttt{layers\_z\_to\_x = ()}). Encoders read $\log(1 + x_i)$. Each network
+outputs a standard deviation through $\softplus$; $f_{\mathrm{var}}$, $d_{\mathrm{var}}$ are
+its square. For Decipher, drop every batch term below.
+
+\subsection{Batch-free networks (identical in Decipher and model5)}
+\begin{align*}
+[f_{\mathrm{mean}}(v),\ \tilde f(v)] &= Q \,\ReLU\!\big(\BN(P v + p)\big) + q,
+\qquad f_{\mathrm{var}}(v) = \diag\!\big(\softplus(\tilde f(v))\big)^2, \\
+\mathbf{k}_i &= \ReLU\!\big(\BN(F [z_i;\ \log(1 + x_i)] + f_0)\big) \in \mathbb{R}^{128}, \\
+[d^{\to v}_{\mathrm{mean}},\ \tilde d^{\to v}] &= H \mathbf{k}_i + h_0,
+\qquad d^{\to v}_{\mathrm{var}} = \diag\!\big(\softplus(\tilde d^{\to v}) + \varepsilon\big)^2 .
+\end{align*}
+
+\subsection{Batch-conditioned networks: two equivalent forms}
+
+\paragraph{\texttt{decipher\_models2}: one-hot concatenation.} The one-hot is concatenated
+in front of the input of the first linear layer:
+\begin{align*}
+h(z_i, \batch_i) &= \softmax\!\big(\bar W [\one_{\batch_i};\ z_i] + c\big),
+  & \bar W &= [\,W_{\batch}\ \ W\,] \in \mathbb{R}^{G \times (B + L)}, \\
+\mathbf{a}_i &= \bar A [\one_{\batch_i};\ \log(1 + x_i)] + a,
+  & \bar A &= [\,A_{\batch}\ \ A\,] \in \mathbb{R}^{128 \times (B + G)}.
+\end{align*}
+
+\paragraph{\texttt{decipher\_m5}: \texttt{nn.Embedding} batch-specific biases.} Two independent tables
+$E^{\dec} \in \mathbb{R}^{B \times G}$ (\texttt{batch\_ctx\_dec}) and
+$E^{\enc} \in \mathbb{R}^{B \times 128}$ (\texttt{batch\_ctx\_enc}); a cell's row is added to
+the first layer's output:
+\begin{align*}
+\delta^{\dec}_{\batch} &= E^{\dec}_{\batch,:} \in \mathbb{R}^{G},
+  & h(z_i, \batch_i) &= \softmax\!\big(W z_i + c + \delta^{\dec}_{\batch_i}\big), \\
+\delta^{\enc}_{\batch} &= E^{\enc}_{\batch,:} \in \mathbb{R}^{128},
+  & \mathbf{a}_i &= A \log(1 + x_i) + a + \delta^{\enc}_{\batch_i}.
+\end{align*}
+Each table's width is the output width of the layer its rows are added to: 128 hidden units
+for $d^{\to z}$, $G$ gene logits for $h$ (no hidden layer).
+In $h$, $\delta^{\dec}_{\batch,g}$ multiplies $\mu_{i,g}$ by $e^{\delta^{\dec}_{\batch,g}}$
+before the softmax renormalizes, i.e.\ a per-batch log fold change per gene. In $d^{\to z}$,
+$\delta^{\enc}_{\batch}$ biases hidden units before BatchNorm and ReLU, so its effect on $z_i$
+is nonlinear and cell-dependent, not a constant shift of $z$ (unlike the Set 2
+\texttt{additive} mode, which adds a batch table directly to $z$).
+
+\paragraph{Shared $z$-encoder head (both forms).}
+\[
+[d^{\to z}_{\mathrm{mean}},\ \tilde d^{\to z}] = C \,\ReLU\!\big(\BN(\mathbf{a}_i)\big) + c',
+\qquad d^{\to z}_{\mathrm{var}} = \diag\!\big(\softplus(\tilde d^{\to z}) + \varepsilon\big)^2 .
+\]
+The batch term enters $\mathbf{a}_i$ before BatchNorm, so it affects both
+$d^{\to z}_{\mathrm{mean}}$ and $d^{\to z}_{\mathrm{var}}$.
+
+\paragraph{Equivalence.} Since $\bar W [\one_{\batch};\ z] = W z + (W_{\batch})_{:,\batch}$,
+\[
+\delta^{\dec}_{\batch} = (W_{\batch})_{:,\batch}, \qquad
+\delta^{\enc}_{\batch} = (A_{\batch})_{:,\batch}, \qquad
+\text{i.e. } E^{\dec} = W_{\batch}^{\top},\ \ E^{\enc} = A_{\batch}^{\top}.
+\]
+The two forms define the same model (\texttt{remap\_model5\_state\_dict} converts
+checkpoints). Initialization is matched: in both, every entry of the first layer's weights,
+bias and batch columns/table is drawn from $U(\pm 1/\sqrt{B + \text{input width}})$.
+
+%--------------------------------------------------------------------------------------------
+\section{Reported embeddings}
+
+With $m(x, b) = d^{\to z}_{\mathrm{mean}}(x, b)$:
+\[
+z^{\mathrm{raw}}_i = m(x_i, \batch_i), \qquad
+z_i = \frac{1}{B} \sum_{b=1}^{B} m(x_i, b), \qquad
+v_i = d^{\to v}_{\mathrm{mean}}(x_i, z^{\mathrm{raw}}_i).
+\]
+$z_i$ (batch context averaged) is used for metrics and plots; imputation decodes
+$z^{\mathrm{raw}}_i$ with the cell's own batch. In Decipher, $z_i = z^{\mathrm{raw}}_i$.
+
+\end{document}
