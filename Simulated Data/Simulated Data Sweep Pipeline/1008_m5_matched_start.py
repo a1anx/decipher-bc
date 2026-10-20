@@ -9,11 +9,11 @@ same RNG state, its weights are remapped into the `decipher_m5` model
 minibatch order and the Pyro samples follow the same stream too. If the two packages compute the
 same math, the runs should match the `sweep1008_splitfix` runs up to float-rounding drift.
 
-Sigma 2, seed 3, decipherseed 1-3, through the split-fix driver's `run_one` (wandb, CSV row,
+Sigma 2, seed 3, decipherseed 1-3, through the split-fix driver's `run_one` (CSV row,
 figures, h5ad). Outputs go to `1008/m5_matched_start/` (passed as the pipeline's `run_date`
 dir), then each run's z/v is compared with its `decipher_models2` twin.
 
-    python "Simulated Data/Simulated Data Sweep Pipeline/1008_m5_matched_start.py" [--no-wandb]
+    python "Simulated Data/Simulated Data Sweep Pipeline/1008_m5_matched_start.py"
     python ... --compare-only
 """
 
@@ -65,12 +65,10 @@ def _init_worker():
     importlib.import_module("decipher_m5.tools.decipher").Decipher = matched_decipher
 
 
-def todo_jobs(use_wandb):
+def todo_jobs():
     return [
         j
-        for j in driver.jobs(
-            notebook_tag=TAG, use_wandb=use_wandb, run_date=RUN_DIR, package="decipher_m5"
-        )
+        for j in driver.jobs(notebook_tag=TAG, run_date=RUN_DIR, package="decipher_m5")
         if j["model"] == "model5" and j["shift_sigma"] == SIGMA and j["seed"] == SEED
     ]
 
@@ -104,13 +102,12 @@ def compare():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--no-wandb", action="store_true")
     ap.add_argument("--compare-only", action="store_true")
     args = ap.parse_args()
     if not args.compare_only:
         os.makedirs(OUT_DIR, exist_ok=True)
         csv_path = os.path.join(OUT_DIR, f"{TAG}_sweep_log.csv")
-        jobs = todo_jobs(use_wandb=not args.no_wandb)
+        jobs = todo_jobs()
         print(f"{len(jobs)} jobs -> {OUT_DIR}", flush=True)
         rows = []
         with get_context("spawn").Pool(len(jobs), initializer=_init_worker) as pool:

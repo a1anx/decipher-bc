@@ -1,10 +1,7 @@
 [tool.poetry]
-name = "decipher_models"
+name = "decipher_models3"
 version = "0.1.0"
 packages = [
-  {include = "decipher_models", from = "."},
-  {include = "decipher_models2", from = "."},
-  {include = "decipher_m5", from = "."},
   {include = "decipher_models3", from = "."},
 ]
 
@@ -20,7 +17,6 @@ scipy = "^1.11.3"
 leidenalg = "^0.10.1"
 pyro-ppl = "^1.8.6"
 randomname = "^0.2.1"
-wandb = "^0.30.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -33,23 +29,8 @@ pytest = "^8.0"
 # the pattern keeps the naming convention and makes the files discoverable.
 python_files = ["test_*.py", "[0-9][0-9][0-9][0-9]_test_*.py"]
 
-# The legacy variant packages (Archive/Legacy Models/) are sibling poetry projects, deliberately
-# not all installed at once -- that duplication is what decipher_models exists to remove. test_variant_equivalence.py
-# still has to import them to check the unified model reproduces each one, so put each package's
-# parent directory on sys.path. Declared here rather than mutated inside the test, so a renamed
-# directory is a visible wrong line in config instead of a silently skipped test.
-pythonpath = [
-  "native-decipher",
-  "Archive/Legacy Models/set1-concat-z/model1",
-  "Archive/Legacy Models/set1-concat-z/model2",
-  "Archive/Legacy Models/set1-concat-z/model3",
-  "Archive/Legacy Models/set2-additive/model1-add",
-  "Archive/Legacy Models/set2-additive/model2-add",
-  "Archive/Legacy Models/set2-additive/model3-add",
-  "Archive/Legacy Models/set3-concat-x/model4",
-  "Archive/Legacy Models/set3-concat-x/model5",
-  "Archive/Legacy Models/set3-concat-x/model6",
-]
+# `decipher` (native-decipher/) is the frozen upstream baseline; put its parent directory on sys.path.
+pythonpath = ["native-decipher"]
 
 [build-system]
 requires = ["poetry-core"]

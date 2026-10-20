@@ -15,12 +15,12 @@ over the 9 pairs (3 data seeds x 3 decipher seeds) against two noise scales:
 - the decipher-seed noise SD: the SD across decipher seeds within a data seed, pooled over the
   3 data seeds and both sweeps. A difference between two independent trainings has SD
   sqrt(2) times that, so it is the floor a single-pair delta has to clear.
-Control `n_epochs` (not in its CSV) comes from the wandb `train_elbo` history length; control
-`n_train`/`n_val` (not in its CSV) from its h5ads' `obs["decipher_split"]`.
+Control `n_epochs` comes from its CSV (recorded per run at training time; blank for the 10 runs
+with no record); control `n_train`/`n_val` (not in its CSV) come from its h5ads'
+`obs["decipher_split"]`.
 
 Usage (from this folder):
-    python 1008_compare_splitfix.py               # reads wandb for control n_epochs
-    python 1008_compare_splitfix.py --no-wandb    # control n_epochs left NaN
+    python 1008_compare_splitfix.py
 Writes `<out-dir>/{pairs.csv, by_arm_sigma.csv, by_arm.csv, delta_vs_sigma.png, summary.txt}`.
 """
 
@@ -40,7 +40,6 @@ from scipy import stats  # noqa: E402
 
 KEY = ["model", "batch_mode", "bifurcation", "shift_sigma", "seed", "decipher_seed"]
 METRICS = ["rho", "rho_plus", "rho_minus", "branch_asw", "r2_overall"]
-WANDB_PATH = "jpark-columbia/decipher-bc-sigma-sweep"
 CONTROL_TAG = "sweep1008_control"
 NEW_TAG = "sweep1008_splitfix"
 
@@ -130,23 +129,6 @@ def read_split_counts(h5ad_paths: pd.Series) -> pd.DataFrame:
     return pd.DataFrame(rows, index=h5ad_paths.index)
 
 
-def fetch_wandb_epochs(run_ids: pd.Series) -> pd.Series:
-    """Number of logged `train_elbo` steps per wandb run (= epochs trained); NaN without an id."""
-    import wandb
-
-    api = wandb.Api(timeout=60)
-    out = {}
-    for idx, run_id in run_ids.items():
-        if pd.isna(run_id):
-            out[idx] = np.nan
-            continue
-        run = api.run(f"{WANDB_PATH}/{run_id}")
-        # scan_history(keys=...) can also return the post-training rows with train_elbo None.
-        rows = run.scan_history(keys=["train_elbo"])
-        out[idx] = sum(1 for row in rows if row.get("train_elbo") is not None)
-    return pd.Series(out, dtype=float)
-
-
 def resolve(path: str) -> str:
     return path if os.path.isabs(path) else os.path.join(HERE, path)
 
@@ -175,7 +157,6 @@ def main() -> None:
     p.add_argument("--control", default=os.path.join(SWEEP_DIR, f"{CONTROL_TAG}_sweep_log.csv"))
     p.add_argument("--new", default=os.path.join(SWEEP_DIR, f"{NEW_TAG}_sweep_log.csv"))
     p.add_argument("--out-dir", default=os.path.join(SWEEP_DIR, "compare_splitfix"))
-    p.add_argument("--no-wandb", action="store_true", help="skip control n_epochs from wandb")
     args = p.parse_args()
 
     control, new = pd.read_csv(args.control), pd.read_csv(args.new)
@@ -183,7 +164,6 @@ def main() -> None:
         if df["error"].notna().any():
             raise ValueError(f"{name} ledger has error rows")
     control[["n_train", "n_val"]] = read_split_counts(control["trained_h5ad"].map(resolve))
-    control["n_epochs"] = np.nan if args.no_wandb else fetch_wandb_epochs(control["wandb_run_id"])
     pairs = add_deltas(pair_runs(control, new), METRICS + ["n_epochs"])
     assert len(pairs) == 126, len(pairs)
 
@@ -192,7 +172,7 @@ def main() -> None:
         f"{c}_{s}" for c in METRICS + ["n_epochs", "n_train", "n_val"] for s in ("control", "new")
     ]
     keep += [f"d_{c}" for c in METRICS + ["n_epochs"]]
-    keep += ["wandb_run_id_control", "wandb_run_id_new", "git_sha"]
+    keep += ["git_sha"]
     pairs[keep].to_csv(os.path.join(args.out_dir, "pairs.csv"), index=False)
     table = by_arm_sigma(pairs)
     table.to_csv(os.path.join(args.out_dir, "by_arm_sigma.csv"), index=False)
@@ -210,7 +190,7 @@ def main() -> None:
     lines = [
         f"control: {CONTROL_TAG} ({os.path.basename(args.control)})",
         f"new:     {NEW_TAG} ({os.path.basename(args.new)})",
-        f"pairs: {len(pairs)}; control rows without wandb id (n_epochs NaN): "
+        f"pairs: {len(pairs)}; control rows without a recorded n_epochs (NaN): "
         f"{int(pairs['n_epochs_control'].isna().sum())}",
         "caveat: the fix changes training cells (~1450 -> 2250) AND the early-stopping validation"
         " set (~1050 -> 250) at once; this comparison cannot separate the two.",

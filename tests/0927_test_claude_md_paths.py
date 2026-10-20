@@ -1,7 +1,8 @@
 """Every CLAUDE.md folder guide carries a `Last verified:` date and names only paths that exist.
 
 A stale guide is worse than none: a fresh agent trusts it instead of looking. The guides are
-gitignored (local-only), so on a clone without them this collects nothing and passes.
+gitignored (local-only), so on a clone without them this collects nothing and the root-map
+test skips.
 
 A backticked token counts as a path when it contains `/` and only path characters (so commands,
 code, `<placeholders>` and `*` globs are skipped). It resolves against the guide's own folder,
@@ -15,7 +16,15 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
-PRUNE = {".git", ".venv", "wandb", "_decipher_models", "__pycache__", "trained", "figs", "node_modules"}
+PRUNE = {
+    ".git",
+    ".venv",
+    "_decipher_models",
+    "__pycache__",
+    "trained",
+    "figs",
+    "node_modules",
+}
 PATH_TOKEN = re.compile(r"^[\w .\-/]+$")
 DATE_LINE = re.compile(r"^Last verified: \d{4}-\d{2}-\d{2}$", re.M)
 
@@ -50,3 +59,15 @@ def test_guide_paths_exist(guide):
         if not (guide.parent / tok).exists() and not (REPO / tok).exists()
     ]
     assert not missing, f"{guide.relative_to(REPO)} names paths that no longer exist: {missing}"
+
+
+@pytest.mark.skipif(not (REPO / "CLAUDE.md").exists(), reason="root CLAUDE.md absent (gitignored)")
+def test_root_folder_map_lists_every_main_folder_with_a_guide():
+    """A folder guide the root map does not link is invisible to a fresh agent."""
+    root = (REPO / "CLAUDE.md").read_text()
+    unlisted = [
+        str(g.relative_to(REPO))
+        for g in GUIDES
+        if g.parent.parent == REPO and f"`{g.parent.name}/`" not in root
+    ]
+    assert not unlisted, f"root CLAUDE.md folder map lacks: {unlisted}"

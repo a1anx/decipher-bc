@@ -2,7 +2,10 @@ import logging
 import os
 import time
 
+from typing import Optional, Sequence
+
 import numpy as np
+import pandas as pd
 import randomname
 import torch
 import torch.distributions
@@ -58,7 +61,7 @@ def decipher_save_model(adata, model, overwrite=False):
     adata.uns["decipher"]["config"] = model.config.to_dict()
 
 
-def decipher_load_model(adata):
+def decipher_load_model(adata, batch_levels: Optional[Sequence[str]] = None):
     """Load a decipher model whose name is stored in the given AnnData.
 
     `adata.uns["decipher"]["run_id"]` must be set to the name of the decipher model to load.
@@ -67,6 +70,11 @@ def decipher_load_model(adata):
     ----------
     adata : sc.AnnData
         The annotated data matrix.
+    batch_levels : list of str, optional
+        Only for a checkpoint saved before the config recorded `batch_levels`: the batch labels
+        of the FULL training AnnData, `list(full_adata.obs[<batch_key>].cat.categories)`. They
+        are stored in `adata.uns["decipher"]["config"]`, so later loads need no argument. Never
+        taken from `adata`'s own categories, which miss any level absent from a subset.
 
     Returns
     -------
@@ -77,7 +85,18 @@ def decipher_load_model(adata):
     if "run_id" not in adata.uns["decipher"]:
         raise ValueError("No decipher model has been saved for this AnnData object.")
 
-    model_config = DecipherConfig(**adata.uns["decipher"]["config"])
+    saved = adata.uns["decipher"]["config"]
+    if batch_levels is not None:
+        saved["batch_levels"] = _checked_batch_levels(saved, batch_levels)
+    model_config = DecipherConfig(**saved)
+    if model_config.n_batches > 0 and model_config.batch_levels is None:
+        raise ValueError(
+            "This checkpoint predates the batch-levels fix: its config has no `batch_levels`, so "
+            "batch codes cannot be built safely. Pass "
+            f"`batch_levels=list(full_adata.obs[{model_config.batch_key!r}].cat.categories)` "
+            "(the levels of the full training AnnData, not a subset) to `decipher_load_model`, "
+            "or retrain."
+        )
     model = Decipher(model_config)
     model_run_id = adata.uns["decipher"]["run_id"]
     save_folder = DECIPHER_GLOBALS["save_folder"]
@@ -87,6 +106,23 @@ def decipher_load_model(adata):
     model.load_state_dict(state_dict)
     model.eval()
     return model
+
+
+def _checked_batch_levels(saved_config: dict, batch_levels: Sequence[str]) -> list:
+    """`batch_levels` as strings, if they fit the saved config's n_batches and levels."""
+    levels = [str(level) for level in batch_levels]
+    n_batches = saved_config.get("n_batches", 0)
+    if len(levels) != n_batches:
+        raise ValueError(
+            f"batch_levels has {len(levels)} levels, but the model was trained with "
+            f"n_batches={n_batches}."
+        )
+    stored = saved_config.get("batch_levels")
+    if stored is not None and [str(level) for level in stored] != levels:
+        raise ValueError(
+            f"batch_levels {levels} differ from the levels saved with the model {list(stored)}."
+        )
+    return levels
 
 
 def _check_not_one_hot_concat_x(model: Decipher, state_dict: dict) -> None:
@@ -108,19 +144,44 @@ def _check_not_one_hot_concat_x(model: Decipher, state_dict: dict) -> None:
         )
 
 
-def make_data_loader_from_adata(adata, batch_size=64, context_discrete_keys=None, **kwargs):
-    """Create a PyTorch DataLoader from an AnnData object."""
+def batch_codes(values, batch_levels: Sequence[str], batch_key: Optional[str] = None) -> np.ndarray:
+    """Integer code (int64) of each batch label: its position in `batch_levels`.
+
+    `batch_levels` are the full training AnnData's levels (`DecipherConfig.batch_levels`). The
+    labels are compared as strings, as the levels are stored. Raises ValueError on a label that
+    is not a level, or NaN: its code would be -1, which silently indexes the last embedding row.
+    """
+    labels = pd.Series(np.asarray(values, dtype=object))
+    labels = labels.where(labels.isna(), labels.astype(str))
+    codes = pd.Categorical(labels, categories=list(batch_levels)).codes.astype(np.int64)
+    if (codes < 0).any():
+        column = "batch labels" if batch_key is None else f"adata.obs[{batch_key!r}]"
+        offending = list(pd.unique(labels[codes < 0]))
+        raise ValueError(
+            f"{column} has labels {offending} that are not training batch levels "
+            f"{list(batch_levels)} (NaN counts as unknown). Every cell needs a known batch label."
+        )
+    return codes
+
+
+def make_data_loader_from_adata(
+    adata,
+    batch_size: int = 64,
+    context_levels: Optional[dict] = None,
+    **kwargs,
+) -> torch.utils.data.DataLoader:
+    """Create a PyTorch DataLoader from an AnnData object.
+
+    `context_levels` maps each discrete obs key to its levels (for the batch key, the full
+    training AnnData's `DecipherConfig.batch_levels`); each key becomes a long tensor of codes
+    built against those levels, never against `adata`'s own categories.
+    """
     genes = torch.FloatTensor(get_dense_X(adata))
     params = [genes]
 
-    if context_discrete_keys is None:
-        context_discrete_keys = []
-
-    for key in context_discrete_keys:
-        # 1. Convert the obs column to categorical codes (integers)
-        # 2. Keep it as .long() - DO NOT one-hot encode it here
-        t = torch.tensor(adata.obs[key].astype("category").cat.codes.values).long()
-        params.append(t)
+    for key, levels in (context_levels or {}).items():
+        # Keep the codes as .long() - DO NOT one-hot encode them here
+        params.append(torch.from_numpy(batch_codes(adata.obs[key], levels, key)))
     return torch.utils.data.DataLoader(
         torch.utils.data.TensorDataset(*params),
         batch_size=batch_size,
@@ -129,12 +190,11 @@ def make_data_loader_from_adata(adata, batch_size=64, context_discrete_keys=None
     )
 
 
-def get_batch_idx(adata, config):
+def get_batch_idx(adata, config) -> Optional[torch.Tensor]:
     """Integer batch codes per cell, matching what the training dataloader produced.
 
-    The obs -> codes conversion otherwise exists only inside make_data_loader_from_adata, so
-    every post-training caller silently falls back to "all cells are batch 0". Keeping the
-    conversion in one place is what stops the two paths from drifting apart again.
+    Codes are positions in `config.batch_levels` (the full training AnnData's levels), so a
+    subset that lacks some batch still gets the training codes.
 
     Returns None when the model was trained without batches, so callers can pass it straight
     through to the batch-blind path.
@@ -146,25 +206,14 @@ def get_batch_idx(adata, config):
             f"Model was trained with batch_key={config.batch_key!r}, but that column is "
             f"not present in adata.obs. Available: {list(adata.obs.columns)}"
         )
-
-    # Same conversion as make_data_loader_from_adata above.
-    codes = np.asarray(adata.obs[config.batch_key].astype("category").cat.codes.values)
-
-    # Fail loudly rather than silently mis-assigning batches. A -1 means the column had values
-    # outside its own categories (NaN); a code >= n_batches means the categories were ordered
-    # differently than at training time.
-    if codes.min() < 0:
+    if config.batch_levels is None:
         raise ValueError(
-            f"adata.obs[{config.batch_key!r}] has unassigned (NaN) categories, which "
-            f"produce code -1. Every cell needs a batch label."
+            "config.batch_levels is None, so batch codes cannot be built. Load the model with "
+            "`decipher_load_model(adata, batch_levels=...)` or set it from the full training "
+            "AnnData."
         )
-    if codes.max() >= config.n_batches:
-        raise ValueError(
-            f"adata.obs[{config.batch_key!r}] produced batch code {codes.max()}, but the "
-            f"model was trained with n_batches={config.n_batches}. The category ordering "
-            f"does not match training."
-        )
-    return torch.tensor(codes).long()
+    codes = batch_codes(adata.obs[config.batch_key], config.batch_levels, config.batch_key)
+    return torch.from_numpy(codes)
 
 
 def get_decoder_z(adata, key="decipher_z_raw"):

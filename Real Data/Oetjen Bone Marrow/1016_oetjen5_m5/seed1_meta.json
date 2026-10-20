@@ -126,7 +126,6 @@
     },
     "pass": true
   },
-  "wandb_url": "https://wandb.ai/jpark-columbia/decipher-bc-oetjen/runs/iedmm0ec",
   "seconds": {
     "load": 3.3,
     "train": 223.4,

@@ -1,0 +1,16 @@
+space,metric,branch,value
+pca,batch_asw,all,0.8567642569541931
+pca,graph_ilisi,all,0.010130439180510653
+pca,graph_connectivity,all,0.9983325300098693
+v,batch_asw,all,0.7469421864632139
+v,graph_ilisi,all,0.25309901175341953
+v,graph_connectivity,all,0.8179247274811878
+z,batch_asw,all,0.7824759822296375
+z,graph_ilisi,all,0.00759187092201663
+z,graph_connectivity,all,0.94708671674339
+v,trajectory_conservation,erythroid,0.47233381455523415
+z,trajectory_conservation,erythroid,0.8473509003401725
+v,decipher_time_conservation,erythroid,0.8237577348516517
+v,trajectory_conservation,myeloid,0.9112919875176009
+z,trajectory_conservation,myeloid,0.904959706899477
+v,decipher_time_conservation,myeloid,0.8947958064266884

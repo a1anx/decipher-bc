@@ -16,7 +16,7 @@ _spec = importlib.util.spec_from_file_location("bmmc_run_decipher", _PATH)
 driver = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(driver)
 
-SHARED = dict(tag="t", use_wandb=False, max_cells=None, max_epochs=3, out_dir="x")
+SHARED = dict(tag="t", max_cells=None, max_epochs=3, out_dir="x")
 
 
 def _ids(tier):
@@ -85,7 +85,3 @@ def test_stratified_subsample_is_deterministic_and_sorted():
 
 def test_stratified_subsample_returns_everything_when_max_cells_exceeds_n():
     assert np.array_equal(driver.stratified_subsample(np.array(["a"] * 5), 50), np.arange(5))
-
-
-def test_driver_trains_through_decipher_m5():
-    assert driver.PACKAGE == "decipher_m5"

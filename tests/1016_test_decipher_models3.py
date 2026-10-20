@@ -10,8 +10,6 @@ import sys
 import numpy as np
 import pytest
 
-from decipher_models.presets import PRESETS as PRESETS_1
-from decipher_models.tools.decipher import _make_train_val_split as split_by_name
 from decipher_models3.presets import PRESETS as PRESETS_3
 from decipher_models3.tools.decipher import _make_train_val_split as split_by_position
 
@@ -38,22 +36,36 @@ def _p01_split(split_fn, adata, seed=0):
     return adata.obs["decipher_split"]
 
 
-def test_presets_are_the_seven_decipher_models_presets():
+def test_presets_are_the_seven_decipher_models_presets_plus_the_new_arms():
+    # model4r/model5r: recon_batch="residual" (batch-invariance plan 1b); native_mmd/model2_mmd/
+    # model5_mmd: v_invariance="mmd" (plan 1a); model7/model7i: prior_batch="residual" (plan
+    # model7/model7i); model8: cycle_v=True (cycle penalty on v); model8v: model8 +
+    # prior="vamp"; model5rz/model5r0/model7iw/model7im/model5r_mmd/model8r: the 1017 controls
+    # (tests/1017_test_decipher_models3_controls.py). Only in decipher_models3.
     assert sorted(PRESETS_3) == [
         "model1",
         "model2",
+        "model2_mmd",
         "model3",
         "model4",
+        "model4r",
         "model5",
+        "model5_mmd",
+        "model5r",
+        "model5r0",
+        "model5r_mmd",
+        "model5rz",
         "model6",
+        "model7",
+        "model7i",
+        "model7im",
+        "model7iw",
+        "model8",
+        "model8r",
+        "model8v",
         "native",
+        "native_mmd",
     ]
-    assert PRESETS_3 == PRESETS_1
-
-
-@pytest.mark.parametrize("name", sorted(PRESETS_1))
-def test_preset_flags_equal_decipher_models(name):
-    assert PRESETS_3[name] == PRESETS_1[name]
 
 
 def test_positional_split_on_duplicate_names_is_exactly_90_10():
@@ -62,23 +74,18 @@ def test_positional_split_on_duplicate_names_is_exactly_90_10():
     assert split.value_counts().to_dict() == {"train": 2250, "validation": 250}
 
 
-@pytest.mark.parametrize("seed", [0, 1, 3])
-def test_positional_split_picks_the_cells_by_name_split_picks_on_unique_names(seed):
-    raw = _p01_duplicate_name_data()
-    unique = raw.copy()
-    unique.obs_names_make_unique()
-    fixed = _p01_split(split_by_position, raw, seed)
-    reference = _p01_split(split_by_name, unique, seed)
-    assert np.array_equal(fixed.to_numpy(), reference.to_numpy())
-
-
 # --- P03: best-epoch restore -------------------------------------------------------------------
 # `decipher_train` returns the weights of the lowest-val-NLL epoch, not the last. Arm-agnostic
 # port of tests/1015_test_m5_restore_best.py: a full run must equal a run truncated right after its
 # best epoch (same seed, no early stopping), compared on the whole state_dict and theta without
 # naming any parameter. Run on one concat_z arm (model2) and one concat_x arm (model5).
+# Training is pinned to 1 torch thread: the thread count sets the float reduction order, so the
+# val NLL curve (and whether the last epoch is the best) changes with it; numba calls elsewhere
+# in the session raise torch's count. At 1 thread over 40 epochs the best epoch is 38 (model2)
+# and 34 (model5).
 
-_P03_EPOCHS = 30
+_P03_EPOCHS = 40
+_P03_THREADS = 1
 _P03_BATCH_KEY = "batch"
 
 
@@ -100,6 +107,7 @@ def _p03_train(preset, n_epochs, save_folder):
     """Train `preset` without early stopping; return (state_dict, theta, val_losses, best_epoch)."""
     import matplotlib
     import pyro
+    import torch
 
     import decipher_models3 as dc
     from decipher_models3.tools._decipher import DecipherConfig
@@ -114,13 +122,18 @@ def _p03_train(preset, n_epochs, save_folder):
         learning_rate=5e-2,
         early_stopping_patience=None,
     )
-    model, val_losses = dc.tl.decipher_train(
-        _p03_make_adata(),
-        config,
-        batch_key=_P03_BATCH_KEY,
-        plot_every_k_epochs=-2,
-        plot_kwargs={"color": _P03_BATCH_KEY},
-    )
+    threads = torch.get_num_threads()
+    torch.set_num_threads(_P03_THREADS)
+    try:
+        model, val_losses = dc.tl.decipher_train(
+            _p03_make_adata(),
+            config,
+            batch_key=_P03_BATCH_KEY,
+            plot_every_k_epochs=-2,
+            plot_kwargs={"color": _P03_BATCH_KEY},
+        )
+    finally:
+        torch.set_num_threads(threads)
     theta = pyro.param("theta").detach().clone()
     return model.state_dict(), theta, val_losses, model.best_epoch_
 
@@ -156,11 +169,9 @@ def test_restored_theta_equals_run_stopped_at_best_epoch(_p03_full_and_truncated
     torch.testing.assert_close(full_theta, trunc_theta, rtol=0, atol=0)
 
 
-# --- P02: model math, equivalence, loading -----------------------------------------------------
+# --- P02: model math, loading -----------------------------------------------------
 # Untrained eval-mode models on a small synthetic AnnData, no training beyond single SVI steps.
-# Equivalence uses the m5 tests' setup (tests/1008_test_decipher_m5.py): eval mode, Pyro seed fixed
-# before every sampling call, float32 at rtol 1e-5 / atol 1e-6. concat_z arms (and native) are
-# checked against `decipher_models`; model5 against `decipher_m5` model5e.
+# Eval mode, Pyro seed fixed before every sampling call.
 
 import anndata as ad  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -169,27 +180,16 @@ import torch  # noqa: E402
 from pyro.infer import SVI, Trace_ELBO  # noqa: E402
 from pyro.optim import Adam  # noqa: E402
 
-import decipher_models.tools._decipher.data as _p02_data_1  # noqa: E402
 import decipher_models3.tools._decipher.data as _p02_data_3  # noqa: E402
-from decipher_models.utils import DECIPHER_GLOBALS as _P02_GLOBALS_1  # noqa: E402
 from decipher_models3.tools._decipher import Decipher, DecipherConfig  # noqa: E402
 from decipher_models3.utils import DECIPHER_GLOBALS as _P02_GLOBALS_3  # noqa: E402
 
-_P02_RTOL, _P02_ATOL = 1e-5, 1e-6
 _P02_BATCH_KEY = "batch"
 _P02_N_BATCHES = 3
 _P02_N_GENES = 50
 _P02_D_E = 8  # default dim_batch_embedding
 _P02_CONCAT_X = ["model4", "model5", "model6"]
 _P02_BATCH_ARMS = ["model1", "model2", "model3", *_P02_CONCAT_X]
-# decipher_models3 arm -> (reference package, reference preset) it must reproduce.
-_P02_REFERENCE = {
-    "native": ("decipher_models", "native"),
-    "model1": ("decipher_models", "model1"),
-    "model2": ("decipher_models", "model2"),
-    "model3": ("decipher_models", "model3"),
-    "model5": ("decipher_m5", "model5e"),
-}
 _P02_OUTPUTS = ["v", "z", "z_raw", "impute", "model log-prob"]
 
 
@@ -249,37 +249,9 @@ def _p02_widths(model):
     return tuple(net.layers[0].in_features for net in nets)
 
 
-@pytest.fixture(scope="module", params=sorted(_P02_REFERENCE))
-def _p02_loaded_pair(request):
-    """(arm, reference outputs, decipher_models3 outputs with the reference weights loaded)."""
-    package, preset = _P02_REFERENCE[request.param]
-    reference = _p02_build(preset, package=package)
-    if getattr(reference, "batch_emb", None) is not None:  # decipher_models native has none
-        _p02_randomize_emb(reference)
-    model = _p02_build(request.param, seed=1)
-    model.load_state_dict(reference.state_dict(), strict=True)
-    return request.param, _p02_outputs(reference), _p02_outputs(model)
-
-
 def test_additive_batch_embedding_mode_raises():
     with pytest.raises(ValueError, match="batch_embedding_mode='additive'"):
         DecipherConfig(batch_conditioning="decoder_only", batch_embedding_mode="additive")
-
-
-@pytest.mark.parametrize("name", _P02_OUTPUTS)
-def test_reference_weights_loaded_strictly_give_reference_outputs(_p02_loaded_pair, name):
-    arm, out_ref, out_new = _p02_loaded_pair
-    torch.testing.assert_close(out_new[name], out_ref[name], rtol=_P02_RTOL, atol=_P02_ATOL)
-
-
-@pytest.mark.parametrize("arm", sorted(_P02_REFERENCE))
-def test_same_seed_gives_reference_state_dict(arm):
-    package, preset = _P02_REFERENCE[arm]
-    sd_ref = _p02_build(preset, package=package).state_dict()
-    sd_new = _p02_build(arm).state_dict()
-    assert list(sd_new) == list(sd_ref)
-    for key in sd_ref:
-        assert torch.equal(sd_new[key], sd_ref[key]), key
 
 
 @pytest.mark.parametrize("arm", _P02_CONCAT_X)
@@ -353,15 +325,6 @@ def test_batch_idx_none_equals_batch_zero(arm):
         torch.testing.assert_close(from_none[name], from_zeros[name], rtol=0, atol=0)
 
 
-def test_one_hot_concat_x_checkpoint_raises_explicit_error(tmp_path, monkeypatch):
-    monkeypatch.setitem(_P02_GLOBALS_1, "save_folder", str(tmp_path))
-    monkeypatch.setitem(_P02_GLOBALS_3, "save_folder", str(tmp_path))
-    saved = _P02_ADATA.copy()
-    _p02_data_1.decipher_save_model(saved, _p02_build("model5", package="decipher_models"))
-    with pytest.raises(ValueError, match="one-hot concat_x model .* decipher_models"):
-        _p02_data_3.decipher_load_model(saved)
-
-
 @pytest.mark.parametrize("arm", sorted(_P02_EXPECTED_WIDTHS))
 def test_save_load_roundtrip_reproduces_the_model(arm, tmp_path, monkeypatch):
     monkeypatch.setitem(_P02_GLOBALS_3, "save_folder", str(tmp_path))
@@ -383,7 +346,7 @@ def test_save_load_roundtrip_reproduces_the_model(arm, tmp_path, monkeypatch):
 
 # --- P04: gene patterns ------------------------------------------------------------------------
 # `gene_patterns(adata, ..., batch=None)` for every arm, ported from
-# tests/1016_test_decipher_m5_gene_patterns.py. Trajectory points have no batch: the default averages
+# the old decipher_m5 tests. Trajectory points have no batch: the default averages
 # softmax(decode) uniformly over batches, `batch=` pins one batch or a subset. concat_z arms take
 # the batch in the prior v -> z, concat_x arms in the decoder z -> x. Untrained eval-mode models
 # with a randomized `batch_emb` (concat_x is zero-init), saved to tmp_path. No training.

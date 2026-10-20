@@ -15,14 +15,11 @@ both for the duration of the call: `decipher_train` gets `plot_every_k_epochs=1`
 uses no RNG and the model is already in eval mode when it runs. A side effect of the plot switch:
 `decipher_train` also writes a blank `decipher_training.gif` into `_decipher_models/<run_id>/`.
 
-Outputs, next to this script:
+Output, next to this script:
   <name>.csv   one row per epoch: epoch, phase, det_<batch>, ambig_<batch>, overlap_<batch>, n_minority
-  wandb        same run as the driver's loss curves; metrics `flip/*` against x-axis `flip/epoch`
-               (logged after training, so they don't collide with the driver's step-indexed
-               `train_elbo` / `val_nll`). --no-wandb for CSV only.
 
 Usage:  python 0929_track_flip_during_training.py [--sigma 2.0] [--seed 3] [--model model5]
-            [--batch-mode genes] [--decipher-seed 1] [--no-wandb]
+            [--batch-mode genes] [--decipher-seed 1]
 The driver also writes its usual figures / h5ad under `Sweeps and Results/.../<today>/`.
 """
 
@@ -45,8 +42,6 @@ ROOT = HERE.parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "Simulated Data" / "Simulated Data Sweep Pipeline"))
 
-WANDB_ENTITY = "jpark-columbia"
-WANDB_PROJECT = "decipher-bc-sigma-sweep"
 # same as SIM_KWARGS in 0918_sweep_3models_bifurcation.py
 SIM_KWARGS = dict(
     n_batches=5, n_samples=500, n_genes=200, n_z_dims=3, biological_sigma=0.1, beta=0.1
@@ -105,34 +100,6 @@ class FlipRecorder:
             self._file.close()
 
 
-def init_wandb(args):
-    if args.no_wandb:
-        return None
-    try:
-        import wandb
-
-        return wandb.init(
-            entity=WANDB_ENTITY,
-            project=WANDB_PROJECT,
-            group="flip_tracking",
-            job_type="flip_tracking",
-            name=f"flip_{args.model}_bif_{args.batch_mode}_sigma{args.sigma}_seed{args.seed}"
-            f"_decipherseed{args.decipher_seed}",
-            tags=[args.model, "flip_tracking", f"sigma_{args.sigma}"],
-            config=dict(
-                model=args.model,
-                batch_mode=args.batch_mode,
-                shift_sigma=args.sigma,
-                seed=args.seed,
-                decipher_seed=args.decipher_seed,
-                **SIM_KWARGS,
-            ),
-        )
-    except Exception as e:  # wandb must never kill the run (sweep convention)
-        print(f"  [wandb] init failed, continuing CSV-only: {type(e).__name__}: {e}", flush=True)
-        return None
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--sigma", type=float, default=2.0)
@@ -140,7 +107,6 @@ def main():
     ap.add_argument("--model", default="model5")
     ap.add_argument("--batch-mode", default="genes")
     ap.add_argument("--decipher-seed", type=int, default=1)
-    ap.add_argument("--no-wandb", action="store_true")
     args = ap.parse_args()
 
     bif = importlib.import_module("0918_simulated_data_pipeline_bifurcation")
@@ -152,7 +118,6 @@ def main():
         f"_decipherseed_{args.decipher_seed}.csv"
     )
     recorder = FlipRecorder(csv_path)
-    run = init_wandb(args)
 
     orig_train, orig_plot = dc.tl.decipher_train, dc_tools.plot_decipher_v
     dc.tl.decipher_train = partial(orig_train, plot_every_k_epochs=1)
@@ -166,19 +131,12 @@ def main():
             batch_mode=args.batch_mode,
             branching_t=0.3,
             notebook_tag="flip_tracking",
-            wandb_run=run,
             **SIM_KWARGS,
         )
     finally:
         dc.tl.decipher_train, dc_tools.plot_decipher_v = orig_train, orig_plot
         recorder.close()
 
-    if run is not None:
-        run.define_metric("flip/epoch")
-        run.define_metric("flip/*", step_metric="flip/epoch")
-        for row in recorder.rows:
-            run.log({f"flip/{k}": v for k, v in row.items() if k != "phase"})
-        run.finish()
     print(f"wrote {csv_path}")
 
 

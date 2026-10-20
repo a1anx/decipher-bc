@@ -1,6 +1,6 @@
 control: sweep1008_control (sweep1008_control_sweep_log.csv)
 new:     sweep1008_splitfix (sweep1008_splitfix_sweep_log.csv)
-pairs: 126; control rows without wandb id (n_epochs NaN): 10
+pairs: 126; control rows without a recorded n_epochs (NaN): 10
 caveat: the fix changes training cells (~1450 -> 2250) AND the early-stopping validation set (~1050 -> 250) at once; this comparison cannot separate the two.
 
 split sizes by decipher seed:

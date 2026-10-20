@@ -41,9 +41,6 @@ SHARED_H5AD = os.path.join(OUT, "bmmc_shared.h5ad")
 SHARED_SHA = os.path.join(OUT, "bmmc_shared.sha256")
 
 PACKAGE = "decipher_m5"
-WANDB_ENTITY = "jpark-columbia"
-WANDB_PROJECT = "decipher-bc-bmmc"
-WANDB_JOB_TYPE = "bmmc_run"
 DEVICE = "cpu"
 LEARNING_RATE = 1e-3  # simulation default
 BETA = 0.1  # simulation default
@@ -67,7 +64,7 @@ OBS_KEEP += ["ref_pseudotime"]
 LEDGER_COLUMNS = [
     "run_id", "config", "conditioned_on", "n_batches", "seed", "hvg", "n_cells", "n_train",
     "n_val", "n_epochs", "seconds_total", "seconds_per_epoch", "peak_rss_mb",
-    "shared_h5ad_sha256", "package", "git_sha", "git_dirty", "wandb_run_id", "wandb_url",
+    "shared_h5ad_sha256", "package", "git_sha", "git_dirty",
     "status", "error",
 ]  # fmt: skip
 
@@ -88,7 +85,7 @@ def make_jobs(
 ) -> list[dict]:
     """Job dicts for a tier (comma-separated allowed, e.g. "T1,T2") or an explicit grid.
 
-    `shared` (tag, use_wandb, max_cells, max_epochs, out_dir) is copied into every job: spawn
+    `shared` (tag, max_cells, max_epochs, out_dir) is copied into every job: spawn
     re-imports this module in each worker, so per-run settings must travel in the job dict.
     """
     if tier:
@@ -227,38 +224,7 @@ def _use_shared_split(adata) -> None:
     mod.check_adata_has_integer_counts = _sparse_integer_check
 
 
-def _start_wandb(job: dict):
-    """One wandb run per job; None when disabled or init fails (never fatal)."""
-    if not job["use_wandb"]:
-        return None
-    try:
-        import wandb
-
-        return wandb.init(
-            entity=WANDB_ENTITY,
-            project=WANDB_PROJECT,
-            group=job["config"],
-            job_type=WANDB_JOB_TYPE,
-            name=f"{job['run_id']}_{job['tag']}",
-            tags=[job["config"], f"hvg{job['hvg']}", job["tag"]],
-            config={
-                "config": job["config"],
-                "preset": job["preset"],
-                "conditioned_on": job["conditioned_on"],
-                "decipher_seed": job["seed"],
-                "hvg": job["hvg"],
-                "max_cells": job["max_cells"],
-                "max_epochs": job["max_epochs"],
-                "package": PACKAGE,
-            },
-            reinit="finish_previous",
-        )
-    except Exception as e:  # degrade to CSV-only
-        print(f"  [wandb] init failed, CSV-only: {type(e).__name__}: {e}", flush=True)
-        return None
-
-
-def _train(job: dict, run) -> dict:
+def _train(job: dict) -> dict:
     """Load, subset, train, save the h5ad; return ledger fields."""
     import importlib
     import resource
@@ -303,7 +269,7 @@ def _train(job: dict, run) -> dict:
     )
     seconds_total = time.perf_counter() - t0
 
-    train_losses, val_losses = decipher.train_losses_, decipher.val_losses_
+    val_losses = decipher.val_losses_
     n_epochs = len(val_losses)
     split = adata.obs["decipher_split"]
     git_sha, git_dirty = _git_state()
@@ -327,21 +293,6 @@ def _train(job: dict, run) -> dict:
     os.makedirs(job["out_dir"], exist_ok=True)
     out.write_h5ad(os.path.join(job["out_dir"], f"{job['run_id']}.h5ad"))
 
-    if run is not None:
-        run.config.update(config.to_dict(), allow_val_change=True)
-        for epoch, (tr, va) in enumerate(zip(train_losses, val_losses)):
-            run.log({"train_elbo": tr, "val_nll": va}, step=epoch)
-        final = dict(
-            final_train_elbo=train_losses[-1],
-            final_val_nll=val_losses[-1],
-            n_epochs_trained=n_epochs,
-            seconds_total=rec["seconds_total"],
-            seconds_per_epoch=rec["seconds_per_epoch"],
-            n_train=rec["n_train"],
-            n_val=rec["n_val"],
-        )
-        run.log(final)
-        run.summary.update(final)
     rec["peak_rss_mb"] = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 0)
     return rec
 
@@ -349,22 +300,14 @@ def _train(job: dict, run) -> dict:
 def run_one(job: dict) -> dict:
     """Train one job. Returns a ledger row; never raises."""
     record = {k: job[k] for k in ("run_id", "config", "conditioned_on", "seed", "hvg")}
-    run = _start_wandb(job)
-    record["wandb_run_id"] = getattr(run, "id", None)
-    record["wandb_url"] = getattr(run, "url", None)
     try:
-        record.update(_train(job, run), status="ok", error=None)
+        record.update(_train(job), status="ok", error=None)
     except Exception as e:  # one bad run must not kill the sweep
         record.update(status="failed", error=f"{type(e).__name__}: {e}")
-        if run is not None:
-            run.summary["status"] = "failed"
-            run.summary["error"] = record["error"]
     finally:
-        if run is not None:
-            import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
 
-            plt.close("all")
-            run.finish()
+        plt.close("all")
     return record
 
 
@@ -382,7 +325,6 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     ap.add_argument("--tag", default="full")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--no-wandb", action="store_true", help="debug only; CSV ledger only")
     args = ap.parse_args(argv)
 
     out_dir = os.path.join(OUT, "runs", args.tag)
@@ -393,7 +335,6 @@ def main(argv=None) -> int:
         seeds=args.seeds,
         hvgs=args.hvg,
         tag=args.tag,
-        use_wandb=not args.no_wandb,
         max_cells=args.max_cells,
         max_epochs=args.max_epochs,
         out_dir=out_dir,
@@ -405,7 +346,6 @@ def main(argv=None) -> int:
         f"grid: {len(all_jobs)} runs, already ok: {len(all_jobs) - len(todo)}, to run: {len(todo)}"
     )
     print(f"workers: {args.workers}  device: {DEVICE}  ledger: {ledger_path}")
-    print("wandb: " + ("disabled" if args.no_wandb else f"{WANDB_ENTITY}/{WANDB_PROJECT}"))
     if args.dry_run:
         for j in todo:
             print("   ", j["run_id"], j["preset"], j["conditioned_on"])

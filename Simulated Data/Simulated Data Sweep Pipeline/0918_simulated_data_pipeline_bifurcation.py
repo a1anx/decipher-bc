@@ -48,16 +48,14 @@ from matplotlib import pyplot as plt
 from scipy.stats import spearmanr
 from sklearn.metrics import silhouette_score
 
-# `decipher_models` and `decipher` are directories at the repo root, not installed packages -- they
+# `decipher_models3` and `decipher` are directories at the repo root, not installed packages -- they
 # import only when the repo root is on sys.path. Deriving it from __file__ means this script (and
 # the notebooks that import it) work from any working directory.
-_REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-)
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from decipher_models.presets import PRESETS as MODEL_PRESETS  # noqa: E402
+from decipher_models3.presets import PRESETS as MODEL_PRESETS  # noqa: E402
 
 
 def simulate_multivariate_bifurcation(
@@ -452,7 +450,7 @@ def branch_silhouette(adata, branching_t, rep_key="decipher_v"):
 # Model selection
 #
 # CHANGED 2026-09-18. This used to be aug1's if/elif chain over ten separate packages
-# (decipher_vz, decipher_zx, ...). `decipher_models` replaced all of them with ONE package whose
+# (decipher_vz, decipher_zx, ...). `decipher_models3` replaced all of them with ONE package whose
 # architecture is chosen by config flags, so the chain is now a preset table.
 #
 #     batch_conditioning  : "none" | "decoder_only" | "decoder_encoder"   (is the guide conditioned)
@@ -463,7 +461,7 @@ def branch_silhouette(adata, branching_t, rep_key="decipher_v"):
 # flags rather than ten names: "decoder_only" = guide blind, "decoder_encoder" = guide
 # conditioned, and mean_field_v=True is the third step. See batch-conditioning-comparison.md.
 #
-# The table itself lives in decipher_models.presets -- shared with
+# The table itself lives in decipher_models3.presets -- shared with
 # tests/test_variant_equivalence.py, so the sweep and the equivalence test can never disagree
 # about what "model4" means. Bad flag VALUES are caught by DecipherConfig.__post_init__ and bad
 # field names by the dataclass constructor, so this file does no validation of its own.
@@ -473,8 +471,8 @@ def _build_model(model):
     """Return (dc, DecipherConfig, preset_kwargs) for one model name."""
     if model not in MODEL_PRESETS:
         raise ValueError(f"unknown model {model!r}. Expected one of: {', '.join(MODEL_PRESETS)}")
-    dc = importlib.import_module("decipher_models")
-    DecipherConfig = importlib.import_module("decipher_models.tools._decipher").DecipherConfig
+    dc = importlib.import_module("decipher_models3")
+    DecipherConfig = importlib.import_module("decipher_models3.tools._decipher").DecipherConfig
     return dc, DecipherConfig, MODEL_PRESETS[model]
 
 
@@ -495,20 +493,12 @@ def train_and_compute_rho_r2_bifurcation(
     branching_t: float = 0.3,
     branch_prob: float = 0.5,
     branch_scale: float = 1.0,
-    wandb_run=None,
 ):
     """Generate bifurcating data, train one variant, and score it.
 
     Same shape as `0801_simulated_data_pipeline.train_and_compute_rho_r2`, with two differences:
     the data has a fork in it, and pseudotime is scored along ONE TRAJECTORY PER ARM rather than a
     single spline that would have to zigzag across the fork.
-
-    wandb_run : wandb Run or None
-        ADDED 2026-09-18. When given, the per-epoch loss curves, the diagnostic figure and the
-        final metrics are logged to it. Taken as a parameter rather than returning the decipher
-        object because the losses and the figure only exist inside this function, and adding a
-        return value would break every existing caller's unpacking.
-        None keeps this function wandb-free, so the tests and the smoke script are unaffected.
 
     Returns
     -------
@@ -542,15 +532,6 @@ def train_and_compute_rho_r2_bifurcation(
         config,
         plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"},
     )
-
-    if wandb_run is not None:
-        # decipher_train fills in dim_genes/n_cells/n_batches/batch_key via
-        # config.initialize_from_adata, so the config is only complete after training.
-        wandb_run.config.update(config.to_dict(), allow_val_change=True)
-        for epoch, (train_elbo, val_nll) in enumerate(
-            zip(decipher.train_losses_, decipher.val_losses_)
-        ):
-            wandb_run.log({"train_elbo": train_elbo, "val_nll": val_nll}, step=epoch)
 
     # Reconstruction diagnostic -- computed right after training so we still have the in-memory
     # decipher object with train_losses_ / val_losses_.
@@ -592,10 +573,6 @@ def train_and_compute_rho_r2_bifurcation(
         dpi=120,
         bbox_inches="tight",
     )
-    if wandb_run is not None:
-        import wandb
-
-        wandb_run.log({"reconstruction_diagnostic": wandb.Image(fig)})
     plt.close(fig)
 
     # Trajectories -- one per arm, sharing the trunk clusters.
@@ -613,7 +590,7 @@ def train_and_compute_rho_r2_bifurcation(
     dc.tl.decipher_rotate_space(adata)
     dc.tl.decipher_time(adata)
 
-    # v-space figure (ported from wandb_sigma_sweep.py; previously made post-hoc by
+    # v-space figure (ported from the earlier sigma sweep script; previously made post-hoc by
     # 0918_postsweep_vspace_figures.py). Same filename scheme as the reconstruction figure.
     fig_v = dc.pl.decipher(
         adata, color=["batch", "latent_t", "decipher_time"], basis="decipher_v", ncols=3
@@ -633,10 +610,6 @@ def train_and_compute_rho_r2_bifurcation(
         dpi=120,
         bbox_inches="tight",
     )
-    if wandb_run is not None:
-        import wandb
-
-        wandb_run.log({"v_space": wandb.Image(fig_v)})
     plt.close(fig_v)
 
     # Metrics
@@ -659,24 +632,6 @@ def train_and_compute_rho_r2_bifurcation(
     branch_asw = branch_silhouette(adata, branching_t)
     adata.uns["branch_asw"] = branch_asw
     adata.uns["trajectory_names"] = list(orders.keys())
-
-    if wandb_run is not None:
-        # Both log() and summary: log() makes it plottable against the sweep axes, summary makes
-        # it sortable in the runs table. NaN arm metrics on the no-bifurcation half are recorded
-        # as-is -- they mean "no fork existed", not "measurement missing".
-        final = {
-            "rho": abs(rho),
-            "rho_plus": arm_rhos["rho_plus"],
-            "rho_minus": arm_rhos["rho_minus"],
-            "branch_asw": branch_asw,
-            "r2_overall": r2_overall,
-            "r2_per_gene_median": r2_per_gene_median,
-            "n_trajectories": len(orders),
-        }
-        wandb_run.log(final)
-        for k, v in final.items():
-            wandb_run.summary[k] = v
-        wandb_run.summary["status"] = "success"
 
     # Save trained adata. As in aug1, two sweeps on the same calendar day that both leave
     # notebook_tag unset will overwrite each other's h5ads -- pass a distinct tag per notebook.
@@ -717,7 +672,7 @@ if __name__ == "__main__":
     branching_t = 0.3
     branch_prob = 0.5
 
-    # Display name -> MODEL_PRESETS key. All arms come from the one decipher_models package
+    # Display name -> MODEL_PRESETS key. All arms come from the one decipher_models3 package
     # (Set 2 / additive dropped 2026-09-25, excluded from the thesis); add or drop a line to
     # change the sweep's scope.
     models = {

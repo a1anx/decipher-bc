@@ -1,12 +1,13 @@
-"""End-to-end smoke test for the seven `decipher_models3` presets.
+"""End-to-end smoke test for every `decipher_models3` preset.
 
-NOT collected by pytest (the name has no `test_` prefix): it trains seven tiny models on CPU,
-about 30 s in total. Run it directly from the repo root:
+NOT collected by pytest (the name has no `test_` prefix): it trains one tiny model per preset on
+CPU, about 30 s for the seven original presets. Run it directly from the repo root:
 
     .venv/bin/python tests/1016_smoke_decipher_models3.py [preset ...]
 
-With no arguments it runs native and model1-model6. For each preset it trains 3 epochs on up to
-1000 cells of a local simulated bifurcation h5ad (raw counts only; trained obsm/uns are stripped),
+With no arguments it runs every key of `PRESETS` (native and model1-model6 at first). For each
+preset it trains 3 epochs on up to 1000 cells of a local simulated bifurcation h5ad (raw counts
+only; trained obsm/uns are stripped),
 then runs `trajectories`, `decipher_time` and `gene_patterns` (batch-averaged, and for batch arms
 also one named batch). It prints one line per preset and exits non-zero on any failure.
 Checkpoints go to a temp directory, never into the repo.
@@ -93,7 +94,8 @@ def run_preset(name: str, adata: ad.AnnData) -> str:
     dc.tl.decipher_time(adata)
     assert np.isfinite(adata.obs["decipher_time"].dropna()).all(), "non-finite decipher_time"
 
-    batch_names = [None] if name == "native" else [None, adata.obs[BATCH_KEY].cat.categories[0]]
+    batch_blind = PRESETS[name]["batch_conditioning"] == "none"  # native, native_mmd
+    batch_names = [None] if batch_blind else [None, adata.obs[BATCH_KEY].cat.categories[0]]
     for batch in batch_names:
         dc.tl.gene_patterns(adata, n_samples=20, batch=batch)
         gp = adata.uns["decipher"]["gene_patterns"]["traj"]
@@ -127,6 +129,4 @@ def main(presets: list) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(
-        main(sys.argv[1:] or ["native", "model1", "model2", "model3", "model4", "model5", "model6"])
-    )
+    sys.exit(main(sys.argv[1:] or list(PRESETS)))

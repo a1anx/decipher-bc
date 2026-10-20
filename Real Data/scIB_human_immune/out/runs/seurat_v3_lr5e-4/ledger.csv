@@ -1,3 +1,3 @@
-run_id,config,n_batches,seed,n_cells,n_train,n_val,n_epochs,best_epoch,final_train_elbo,final_val_nll,r2_overall,seconds_total,peak_rss_mb,git_sha,git_dirty,wandb_run_id,wandb_url,status,error
-model5_hvg2000_ds1,model5,9,1,32484,29236,3248,43,32,748.891510743076,774.1312346059113,0.7870261404173173,460.1,3533.0,7107b5e66923bf99fe4e42ad4f25298ab349615c,True,9ayfguhf,https://wandb.ai/jpark-columbia/decipher-bc-scib-immune/runs/9ayfguhf,ok,
-native_hvg2000_ds1,native,0,1,32484,29236,3248,48,37,747.5400503732166,766.8278171182266,0.7846438540642312,501.8,3497.0,7107b5e66923bf99fe4e42ad4f25298ab349615c,True,2a30qhj8,https://wandb.ai/jpark-columbia/decipher-bc-scib-immune/runs/2a30qhj8,ok,
+run_id,config,n_batches,seed,n_cells,n_train,n_val,n_epochs,best_epoch,final_train_elbo,final_val_nll,r2_overall,seconds_total,peak_rss_mb,git_sha,git_dirty,status,error
+model5_hvg2000_ds1,model5,9,1,32484,29236,3248,43,32,748.891510743076,774.1312346059113,0.7870261404173173,460.1,3533.0,7107b5e66923bf99fe4e42ad4f25298ab349615c,True,ok,
+native_hvg2000_ds1,native,0,1,32484,29236,3248,48,37,747.5400503732166,766.8278171182266,0.7846438540642312,501.8,3497.0,7107b5e66923bf99fe4e42ad4f25298ab349615c,True,ok,

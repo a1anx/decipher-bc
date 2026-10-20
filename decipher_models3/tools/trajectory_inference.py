@@ -9,7 +9,7 @@ import scanpy as sc
 import scipy.spatial
 import torch.nn.functional
 
-from decipher_models3.tools._decipher.data import decipher_load_model
+from decipher_models3.tools._decipher.data import batch_codes, decipher_load_model
 from decipher_models3.utils import create_decipher_uns_key
 
 logger = logging.getLogger(__name__)
@@ -436,11 +436,11 @@ def decipher_time(adata, n_neighbors=10):
     logging.info("Added `.obs['decipher_time']`: the decipher time of each cell.")
 
 
-def _batch_codes(adata, config, batch) -> Optional[List[int]]:
+def _batch_codes(config, batch) -> Optional[List[int]]:
     """Integer codes of the batches to average gene patterns over; None for a batch-blind model.
 
-    `batch` is None (every batch), one batch name, or a list of names, matched against the
-    categories of `adata.obs[config.batch_key]` (the same conversion as `get_batch_idx`).
+    `batch` is None (every batch), one batch name, or a list of names, matched against
+    `config.batch_levels` (the full training AnnData's levels, as in `get_batch_idx`).
     """
     batch_conditioned = config.batch_conditioning != "none" and config.n_batches > 0
     if not batch_conditioned:
@@ -453,16 +453,7 @@ def _batch_codes(adata, config, batch) -> Optional[List[int]]:
     names = list(batch) if isinstance(batch, (list, tuple)) else [batch]
     if not names:
         raise ValueError("batch=[] selects no batch; pass None to average over every batch.")
-    categories = list(adata.obs[config.batch_key].astype("category").cat.categories)
-    if len(categories) != config.n_batches:
-        raise ValueError(
-            f"adata.obs[{config.batch_key!r}] has {len(categories)} categories, but the model "
-            f"was trained with n_batches={config.n_batches}."
-        )
-    unknown = [n for n in names if n not in categories]
-    if unknown:
-        raise ValueError(f"Unknown batch {unknown}; {config.batch_key!r} has {categories}.")
-    return [categories.index(n) for n in names]
+    return batch_codes(names, config.batch_levels, config.batch_key).tolist()
 
 
 def _batch_tensor(b: Optional[int], shape) -> Optional[torch.Tensor]:
@@ -487,7 +478,8 @@ def _pattern_expression(model, v: torch.Tensor, codes: Optional[List[int]], n_sa
     """(mean, samples) expression along trajectory points `v`, averaged uniformly over `codes`.
 
     For each batch b the prior gives z_loc_b, z_scale_b (batch-blind under concat_x, so equal for
-    every b). `mean` averages softmax(decode(z_loc_b, b)) over b. Samples share one eps across
+    every b, except under prior_batch="residual" (model7/7i), where z_loc_b gains t([v; e_b]) and
+    z_scale_b stays the same for every b). `mean` averages softmax(decode(z_loc_b, b)) over b. Samples share one eps across
     batches, z_s,b = z_loc_b + z_scale_b * eps_s, and each sample is averaged over b before any
     quantile, so the band reflects uncertainty in z, not the spread between batches.
     """
@@ -509,10 +501,11 @@ def gene_patterns(adata, l_scale=10_000, n_samples=100, batch=None):
     The trajectories' points are sent through the decoders, thus defining distributions over the
     gene expression. The gene patterns are computed by sampling from these distribution.
 
-    Trajectory points have no batch. For a batch-conditioned model (model1-6) each point is sent
+    Trajectory points have no batch. For a batch-conditioned model (model1-8) each point is sent
     through the prior v -> z and the decoder z -> x once per batch, and the expression averaged
     uniformly over batches, as scVI's `transform_batch`. Under concat_z (model1-3) the batch
-    enters through the prior; under concat_x (model4-6) through the decoder.
+    enters through the prior; under concat_x (model4-6, 4r, 5r, 8) through the decoder; under
+    prior_batch="residual" (model7/7i) through both (z_loc gains t([v; e_b])).
 
     Parameters
     ----------
@@ -540,7 +533,7 @@ def gene_patterns(adata, l_scale=10_000, n_samples=100, batch=None):
     """
     uns_decipher_key = "gene_patterns"
     model = decipher_load_model(adata)
-    codes = _batch_codes(adata, model.config, batch)
+    codes = _batch_codes(model.config, batch)
     if uns_decipher_key not in adata.uns["decipher"]:
         adata.uns["decipher"][uns_decipher_key] = dict()
 

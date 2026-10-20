@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,12 @@ from pyro.infer import SVI, Trace_ELBO
 from tqdm import tqdm
 
 from decipher_models3.plot.decipher import decipher as plot_decipher_v
+from decipher_models3.run_logging import (
+    METRICS_CSV,
+    CsvLog,
+    checkpoint_path,
+    write_run_summary,
+)
 from decipher_models3.tools._decipher import Decipher, DecipherConfig
 from decipher_models3.tools._decipher.data import (
     decipher_load_model,
@@ -81,6 +88,37 @@ def predictive_log_likelihood(decipher, dataloader, n_samples=5):
     return log_z.item()
 
 
+def penalized_step(
+    decipher: Decipher, elbo: Trace_ELBO, optimizer: pyro.optim.PyroOptim, *args
+) -> tuple[float, dict[str, float]]:
+    """One gradient step on ELBO loss + sum_name weight * penalty; `SVI.step` with extra terms.
+
+    Mirrors `SVI.step`: the params touched by the step are captured with a param-only trace,
+    `optimizer` (the same `PyroOptim` that `SVI` holds, so its per-param state carries across
+    steps) updates them, and their gradients are zeroed. The guide is traced once, inside the
+    ELBO, and `decipher.penalties` reads that trace, so every penalty sees the same latent
+    samples as the ELBO.
+
+    Returns the ELBO loss of the step (without penalties, as `svi.step` reports it) and each
+    unweighted penalty value.
+    """
+    weights = decipher.penalty_weights()
+    with poutine.trace(param_only=True) as param_capture:
+        guide = poutine.trace(decipher.guide)
+        elbo_loss = elbo.differentiable_loss(decipher.model, guide, *args)
+        values = decipher.penalties(guide.trace, *args)
+        if values.keys() != weights.keys():
+            raise ValueError(
+                f"penalties {sorted(values)} do not match penalty_weights {sorted(weights)}"
+            )
+        loss = elbo_loss + sum(weights[name] * value for name, value in values.items())
+        loss.backward()
+    params = {site["value"].unconstrained() for site in param_capture.trace.nodes.values()}
+    optimizer(params)
+    pyro.infer.util.zero_grads(params)
+    return elbo_loss.item(), {name: value.item() for name, value in values.items()}
+
+
 def _make_train_val_split(adata, val_frac, seed):
     n_val = int(val_frac * adata.shape[0])
     cell_idx = np.arange(adata.shape[0])
@@ -106,6 +144,7 @@ def decipher_train(
     plot_every_k_epochs=-1,
     plot_kwargs=None,
     device="cpu",
+    run_dir: Optional[str] = None,
 ):
     """Train a decipher model.
 
@@ -124,12 +163,23 @@ def decipher_train(
         Additional keyword arguments to pass to `dc.pl.decipher`.
     device: str, optional
         The device to use for training. Default: "cpu".
+    run_dir: str, optional
+        If given, every epoch appends one row (epoch, train_elbo, val_nll, lr, `train/<penalty>`)
+        to `run_dir/metrics.csv` and overwrites `run_dir/train_checkpoint.pt` (weights, theta,
+        optimizer, RNG, best-epoch snapshot, early-stopping state, losses). If that
+        checkpoint already exists, training resumes after its last epoch: the CSV is trimmed to the
+        epochs it covers, so no epoch is logged twice, and the result equals an uninterrupted run.
+        The config must match the checkpoint's except `n_epochs`. At the end
+        `run_dir/run_summary.json` gets the best epoch, best val NLL, best checkpoint path, epochs
+        trained and whether early stopping fired. Default None: no CSV, checkpoint or resume.
 
     Returns
     -------
     decipher: Decipher
         The trained decipher model, with the weights of the epoch with the lowest validation NLL
-        (`decipher.best_epoch_`), not those of the last epoch.
+        (`decipher.best_epoch_`), not those of the last epoch. `decipher.penalty_history_` maps
+        each active training penalty to its per-epoch mean (unweighted) over training
+        minibatches; it is {} when no penalty flag is on. Penalties never enter val NLL.
     val_losses: list of float
         The validation losses at each epoch.
     `adata.obs['decipher_split']`: categorical
@@ -148,11 +198,15 @@ def decipher_train(
             "Set `plot_every_k_epoch` to -2 to disable."
         )
 
-    # --- ADD THIS SAFETY LOCK HERE ---
-    # Lock the batch categories globally so train and val splits share the exact same integer codes
+    # Fix the batch levels ONCE, from the full adata. Making the column categorical is not enough
+    # on its own: AnnData subsetting drops unused categories, so a split that lacks a level (a
+    # sample with a handful of cells and no val cells) has its own `.cat.codes` shifted, and its
+    # cells get a neighbouring batch's embedding. Every code (dataloaders, `get_batch_idx`,
+    # `gene_patterns`) is therefore built against these levels, never a subset's categories.
+    batch_levels = None
     if batch_key in adata.obs:
         adata.obs[batch_key] = adata.obs[batch_key].astype("category")
-    # ---------------------------------
+        batch_levels = [str(c) for c in adata.obs[batch_key].cat.categories]
 
     if is_notebook() and plot_every_k_epochs == -1:
         plot_every_k_epochs = 5
@@ -166,9 +220,10 @@ def decipher_train(
     adata_val = adata[val_idx, :]
 
     # 2. SETUP CONFIG on adata_train (Original author's flow)
-    # n_cells will correctly reflect the training set size.
-    # n_batches will correctly count all global batches because of our safety lock above.
-    decipher_config.initialize_from_adata(adata_train, batch_key=batch_key)
+    # n_cells reflects the training set size; batch_levels (and n_batches) the full adata.
+    decipher_config.initialize_from_adata(
+        adata_train, batch_key=batch_key, batch_levels=batch_levels
+    )
 
     # 3. Save the batch_key to the MAIN adata uns, not just adata_train
     # This ensures your plotting functions (which use the main adata) can find it
@@ -186,16 +241,17 @@ def decipher_train(
         plot_kwargs = dict()
 
     # 4. Create Dataloaders
+    context_levels = {batch_key: batch_levels} if decipher_config.n_batches > 0 else None
     dataloader_train = make_data_loader_from_adata(
         adata_train,
         decipher_config.batch_size,
-        context_discrete_keys=[batch_key] if decipher_config.n_batches > 0 else None,
+        context_levels=context_levels,
         drop_last=True,
     )
     dataloader_val = make_data_loader_from_adata(
         adata_val,
         decipher_config.batch_size,
-        context_discrete_keys=[batch_key] if decipher_config.n_batches > 0 else None,
+        context_levels=context_levels,
         drop_last=False,
     )
 
@@ -206,6 +262,10 @@ def decipher_train(
     decipher.to(device)
     decipher.train_losses_ = []  # per-epoch train ELBO (per-obs), for reconstruction diagnostic
     decipher.val_losses_ = []  # per-epoch val NLL (per-obs), for reconstruction diagnostic
+    # Any active penalty trains with `penalized_step`; none keeps the plain `svi.step` path.
+    # penalty_history_: name -> per-epoch mean over training minibatches of the unweighted value.
+    use_penalties = bool(decipher.penalty_weights())
+    decipher.penalty_history_ = {name: [] for name in decipher.penalty_weights()}
 
     optimizer = pyro.optim.ClippedAdam(
         {
@@ -227,12 +287,33 @@ def decipher_train(
     else:
         early_stopping = EarlyStopping(patience=int(1e30))
 
-    pbar = tqdm(range(decipher_config.n_epochs))
     best_params = None
     best_val_nll = np.inf
     decipher.best_epoch_ = None  # epoch whose weights are restored after training
     last_train_elbo = np.nan
     val_nll = np.nan
+    start_epoch = 0
+    csv_log = None
+    if run_dir is not None:
+        os.makedirs(run_dir, exist_ok=True)
+        csv_log = CsvLog(os.path.join(run_dir, METRICS_CSV))
+        if os.path.exists(checkpoint_path(run_dir)):
+            ckpt = _load_training_checkpoint(run_dir, decipher, optimizer, decipher_config)
+            start_epoch = ckpt["epoch"]
+            val_losses = ckpt["val_losses"]
+            decipher.train_losses_ = ckpt["train_losses"]
+            decipher.val_losses_ = list(val_losses)
+            decipher.penalty_history_ = ckpt["penalty_history"]
+            best_params, best_val_nll = ckpt["best_params"], ckpt["best_val_nll"]
+            decipher.best_epoch_ = ckpt["best_epoch"]
+            last_train_elbo = ckpt["last_train_elbo"]
+            vars(early_stopping).update(ckpt["early_stopping"])
+            csv_log.resume(start_epoch)
+            logger.info(f"Resumed from {checkpoint_path(run_dir)} after epoch {start_epoch - 1}.")
+
+    # A run that resumes after early stopping has nothing left to train.
+    end_epoch = start_epoch if early_stopping.has_stopped() else decipher_config.n_epochs
+    pbar = tqdm(range(start_epoch, end_epoch))
     for epoch in pbar:
         train_losses = []
         decipher.train()
@@ -247,11 +328,21 @@ def decipher_train(
         n_batches = len(dataloader_train)
         train_elbo = 0
         train_elbo_n_obs = 0
+        epoch_penalties = {name: [] for name in decipher.penalty_history_}
         for xc in dataloader_train:
             try:
                 xc = [x.to(device) for x in xc]
-                loss = svi.step(*xc)
+                if use_penalties:
+                    loss, penalty_values = penalized_step(decipher, elbo, optimizer, *xc)
+                    for name, value in penalty_values.items():
+                        epoch_penalties[name].append(value)
+                else:
+                    loss = svi.step(*xc)
             except Exception as e:
+                if use_penalties:
+                    # Penalized arms fail loudly; the upstream print-and-return below would leave
+                    # an unrestored model that looks like a short run.
+                    raise
                 print("ERROR", e)
                 return decipher, val_losses
             train_losses.append(loss)
@@ -259,6 +350,8 @@ def decipher_train(
             train_elbo_n_obs += xc[0].shape[0]
 
         decipher.train_losses_.append(train_elbo / train_elbo_n_obs)
+        for name, values in epoch_penalties.items():
+            decipher.penalty_history_[name].append(float(np.mean(values)))
 
         decipher.eval()
         val_nll = (
@@ -276,7 +369,39 @@ def decipher_train(
             best_val_nll = val_nll
             best_params = _snapshot_params(decipher)
             decipher.best_epoch_ = epoch
-        if early_stopping(val_nll):
+        stop = early_stopping(val_nll)
+
+        row = {
+            "epoch": epoch,
+            "train_elbo": last_train_elbo,
+            "val_nll": val_nll,
+            "lr": decipher_config.learning_rate,
+            **{f"train/{name}": values[-1] for name, values in decipher.penalty_history_.items()},
+        }
+        if csv_log is not None:
+            csv_log.log(row)
+        if run_dir is not None:
+            _save_training_checkpoint(
+                run_dir,
+                {
+                    "epoch": epoch + 1,
+                    "config": decipher_config.to_dict(),
+                    "model": decipher.state_dict(),
+                    # unconstrained: a constrained round trip is not bit-exact
+                    "theta_unconstrained": pyro.param("theta").unconstrained().detach(),
+                    "optimizer": optimizer.get_state(),
+                    "rng": pyro.util.get_rng_state(),
+                    "best_params": best_params,
+                    "best_val_nll": best_val_nll,
+                    "best_epoch": decipher.best_epoch_,
+                    "early_stopping": dict(vars(early_stopping)),
+                    "train_losses": decipher.train_losses_,
+                    "val_losses": val_losses,
+                    "penalty_history": decipher.penalty_history_,
+                    "last_train_elbo": last_train_elbo,
+                },
+            )
+        if stop:
             break
 
         if plot_every_k_epochs > 0 and (epoch % plot_every_k_epochs == 0):
@@ -316,6 +441,18 @@ def decipher_train(
 
     model_run_id = adata.uns["decipher"]["run_id"]
     save_folder = DECIPHER_GLOBALS["save_folder"]
+    best = {
+        "best_epoch": decipher.best_epoch_,
+        "best_val_nll": None if best_params is None else float(best_val_nll),
+        "best_checkpoint_path": os.path.join(save_folder, str(model_run_id), "decipher_model.pt"),
+    }
+    if run_dir is not None:
+        write_run_summary(
+            run_dir,
+            **best,
+            n_epochs_trained=len(val_losses),
+            early_stopped=early_stopping.has_stopped(),
+        )
     full_path = os.path.join(save_folder, str(model_run_id), "decipher_training.gif")
     if gif_maker.images:
         gif_maker.save_gif(full_path)
@@ -330,6 +467,41 @@ def decipher_train(
 def _snapshot_params(decipher: Decipher) -> tuple[dict, torch.Tensor]:
     """Copy of the module weights and theta (a pyro param that is not in the state_dict)."""
     return copy.deepcopy(decipher.state_dict()), pyro.param("theta").detach().clone()
+
+
+def _save_training_checkpoint(run_dir: str, state: dict) -> None:
+    """Write via a temp file and rename, so a kill mid-write leaves the previous checkpoint."""
+    path = checkpoint_path(run_dir)
+    torch.save(state, path + ".tmp")
+    os.replace(path + ".tmp", path)
+
+
+def _load_training_checkpoint(
+    run_dir: str, decipher: Decipher, optimizer, decipher_config: DecipherConfig
+) -> dict:
+    """Load the checkpoint into the model, theta, optimizer and RNG; return it for the rest."""
+    ckpt = torch.load(checkpoint_path(run_dir), weights_only=False)
+    saved, current = ckpt["config"], decipher_config.to_dict()
+    differ = sorted(
+        k
+        for k in saved.keys() | current.keys()
+        if k != "n_epochs" and saved.get(k) != current.get(k)
+    )
+    if differ:
+        raise ValueError(
+            f"{checkpoint_path(run_dir)} was trained with a different config ({differ}); "
+            "use another run_dir or delete the checkpoint to start over"
+        )
+    decipher.load_state_dict(ckpt["model"])
+    # theta is created lazily in `model()`; create it with the same constraint, then set its
+    # unconstrained value exactly.
+    theta = ckpt["theta_unconstrained"]
+    pyro.param("theta", torch.ones_like(theta), constraint=torch.distributions.constraints.positive)
+    with torch.no_grad():
+        pyro.param("theta").unconstrained().copy_(theta)
+    optimizer.set_state(ckpt["optimizer"])
+    pyro.util.set_rng_state(ckpt["rng"])
+    return ckpt
 
 
 def _restore_params(decipher: Decipher, params: tuple[dict, torch.Tensor]) -> None:

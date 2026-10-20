@@ -12,6 +12,11 @@ from the 0918 function:
   - `package` picks the model package (`decipher_models2`, or `decipher_m5` for the 1008
     embedding-table check); figures from any other package go to `figs_<package>/` so they never
     overwrite the `decipher_models2` ones.
+ADDED 2026-10-19 (sim-d3): `package="decipher_models3"` builds the preset from
+`decipher_models3.presets.PRESETS`, writes each `decipher.penalty_history_` series per epoch to
+metrics.csv as `train/<name>` and records `uns["best_epoch"]` (the epoch whose weights were restored). Every
+package is imported lazily, so the module imports and the decipher_models3 path runs on a branch
+where `decipher_models2`/`decipher_m5` are removed.
 The 0918 modules are untouched; the simulator and every other helper are imported from them.
 See Claude Files/plans/1007_splitfix-relay/.
 """
@@ -33,7 +38,7 @@ branch_cluster_orders = _bif.branch_cluster_orders
 branch_silhouette = _bif.branch_silhouette
 
 
-PACKAGES = ("decipher_models2", "decipher_m5")
+PACKAGES = ("decipher_models2", "decipher_m5", "decipher_models3")
 
 
 def _build_model(model: str, package: str = "decipher_models2"):
@@ -100,7 +105,7 @@ def train_and_compute_rho_r2_bifurcation(
     branching_t: float = 0.3,
     branch_prob: float = 0.5,
     branch_scale: float = 1.0,
-    wandb_run=None,
+    run_dir: str = None,
     run_date: str = None,
     arm: str = None,
     package: str = "decipher_models2",
@@ -111,12 +116,9 @@ def train_and_compute_rho_r2_bifurcation(
     the data has a fork in it, and pseudotime is scored along ONE TRAJECTORY PER ARM rather than a
     single spline that would have to zigzag across the fork.
 
-    wandb_run : wandb Run or None
-        ADDED 2026-09-18. When given, the per-epoch loss curves, the diagnostic figure and the
-        final metrics are logged to it. Taken as a parameter rather than returning the decipher
-        object because the losses and the figure only exist inside this function, and adding a
-        return value would break every existing caller's unpacking.
-        None keeps this function wandb-free, so the tests and the smoke script are unaffected.
+    run_dir : str or None
+        ADDED 2026-10-19. Passed to `decipher_train`: per-epoch `metrics.csv`, a checkpoint each
+        epoch (a killed run resumes from it) and `run_summary.json`. decipher_models3 only.
 
     run_date : str or None
         `%m%d` output dir. None = today at call time; the sweep driver passes one value for the
@@ -126,11 +128,15 @@ def train_and_compute_rho_r2_bifurcation(
         figures did. None = the model name.
     package : str
         Model package to train through (`PACKAGES`). Figures from a package other than
-        `decipher_models2` go to `figs_<package>/` instead of `figs/`.
+        `decipher_models2` go to `figs_<package>/` instead of `figs/`. Under
+        `decipher_models3` the per-epoch rows also carry `train/<name>` for each training penalty
+        and `uns["best_epoch"]` is set.
 
     Returns
     -------
     (rho, rho_plus, rho_minus, branch_asw, trained_h5ad_path, r2_overall, r2_per_gene_median, adata)
+    Under `decipher_models3`, `adata.uns["best_epoch"]` carries the restored epoch (the tuple
+    shape is unchanged so existing callers keep unpacking eight values).
     """
     t_start = time.perf_counter()
     adata = shift_magnitudes_multivariate_bifurcation(
@@ -157,21 +163,18 @@ def train_and_compute_rho_r2_bifurcation(
     config = DecipherConfig(
         learning_rate=1e-3, seed=decipher_seed, dim_z=dim_z, beta=beta, **preset
     )
+    run_logging = {}
+    if run_dir is not None:
+        run_logging = {"run_dir": run_dir}
     decipher, _ = dc.tl.decipher_train(
         adata,
         config,
         plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"},
+        **run_logging,
     )
 
     t_trained = time.perf_counter()
-    if wandb_run is not None:
-        # decipher_train fills in dim_genes/n_cells/n_batches/batch_key via
-        # config.initialize_from_adata, so the config is only complete after training.
-        wandb_run.config.update(config.to_dict(), allow_val_change=True)
-        for epoch, (train_elbo, val_nll) in enumerate(
-            zip(decipher.train_losses_, decipher.val_losses_)
-        ):
-            wandb_run.log({"train_elbo": train_elbo, "val_nll": val_nll}, step=epoch)
+    is_d3 = package == "decipher_models3"
 
     # Reconstruction diagnostic -- computed right after training so we still have the in-memory
     # decipher object with train_losses_ / val_losses_.
@@ -183,6 +186,8 @@ def train_and_compute_rho_r2_bifurcation(
     split = adata.obs["decipher_split"]
     adata.uns["n_train"] = int((split == "train").sum())
     adata.uns["n_val"] = int((split == "validation").sum())
+    if is_d3:
+        adata.uns["best_epoch"] = decipher.best_epoch_
 
     today = run_date or datetime.now().strftime("%m%d")
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -223,10 +228,6 @@ def train_and_compute_rho_r2_bifurcation(
         dpi=120,
         bbox_inches="tight",
     )
-    if wandb_run is not None:
-        import wandb
-
-        wandb_run.log({"reconstruction_diagnostic": wandb.Image(fig)})
     plt.close(fig)
     t_recon = time.perf_counter()
 
@@ -246,7 +247,7 @@ def train_and_compute_rho_r2_bifurcation(
     dc.tl.decipher_time(adata)
     t_trajectories = time.perf_counter()
 
-    # v-space figure (ported from wandb_sigma_sweep.py; previously made post-hoc by
+    # v-space figure (ported from the earlier sigma sweep script; previously made post-hoc by
     # 0918_postsweep_vspace_figures.py). Same sorted layout and title as that script.
     fig_v = dc.pl.decipher(
         adata, color=["batch", "latent_t", "decipher_time"], basis="decipher_v", ncols=3
@@ -271,10 +272,6 @@ def train_and_compute_rho_r2_bifurcation(
         dpi=120,
         bbox_inches="tight",
     )
-    if wandb_run is not None:
-        import wandb
-
-        wandb_run.log({"v_space": wandb.Image(fig_v)})
     plt.close(fig_v)
     t_vspace = time.perf_counter()
 
@@ -310,24 +307,6 @@ def train_and_compute_rho_r2_bifurcation(
         "clustering_trajectories_rotate_time": t_trajectories - t_recon,
         "vspace_figure": t_vspace - t_trajectories,
     }
-
-    if wandb_run is not None:
-        # Both log() and summary: log() makes it plottable against the sweep axes, summary makes
-        # it sortable in the runs table. NaN arm metrics on the no-bifurcation half are recorded
-        # as-is -- they mean "no fork existed", not "measurement missing".
-        final = {
-            "rho": abs(rho),
-            "rho_plus": arm_rhos["rho_plus"],
-            "rho_minus": arm_rhos["rho_minus"],
-            "branch_asw": branch_asw,
-            "r2_overall": r2_overall,
-            "r2_per_gene_median": r2_per_gene_median,
-            "n_trajectories": len(orders),
-        }
-        wandb_run.log(final)
-        for k, v in final.items():
-            wandb_run.summary[k] = v
-        wandb_run.summary["status"] = "success"
 
     # Save trained adata. As in aug1, two sweeps on the same calendar day that both leave
     # notebook_tag unset will overwrite each other's h5ads -- pass a distinct tag per notebook.

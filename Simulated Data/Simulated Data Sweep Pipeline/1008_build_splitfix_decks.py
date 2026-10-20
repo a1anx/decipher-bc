@@ -19,13 +19,14 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[2]
-WRITEUPS = ROOT / "Claude Files" / "writeups"
-TEMPLATE = WRITEUPS / "0930_vspace_native_vs_model5_all_sigma_bif_rgb.pptx"
-FIGS = ROOT / "Simulated Data" / "Sweeps and Results" / "shift_sigma_sweep_bifurcation" / "1008"
+SWEEP = ROOT / "Simulated Data" / "Sweeps and Results" / "shift_sigma_sweep_bifurcation"
+TEMPLATE = SWEEP / "0918" / "decks" / "0930_vspace_native_vs_model5_all_sigma_bif_rgb.pptx"
+FIGS = SWEEP / "1008"
+DECKS = FIGS / "decks"
 CONTROL_FIGS = FIGS / "sweep1008_control_figs"
 SPLITFIX_FIGS = FIGS / "figs"
-OUT_A = WRITEUPS / "1008_vspace_recon_model5_original_vs_splitfix_bif.pptx"
-OUT_B = WRITEUPS / "1008_vspace_native_vs_model5_splitfix_bif.pptx"
+OUT_A = DECKS / "1008_vspace_recon_model5_original_vs_splitfix_bif.pptx"
+OUT_B = DECKS / "1008_vspace_native_vs_model5_splitfix_bif.pptx"
 
 SIGMAS = [0.1, 0.5, 1.0, 2.0, 5.0, 7.5, 10.0]  # the 0918 sigmas (no 0925 sigmas)
 SEEDS = [3, 4, 5]

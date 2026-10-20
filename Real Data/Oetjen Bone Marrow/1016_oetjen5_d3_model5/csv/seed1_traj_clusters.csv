@@ -1,0 +1,10 @@
+trajectory,step,cluster,n_cells,majority,CD14+ Monocytes,CD16+ Monocytes,Erythrocytes,Erythroid progenitors,HSPCs,Monocyte progenitors
+erythroid,0,13,248,HSPCs,0,0,0,0,244,4
+erythroid,1,7,371,Erythroid progenitors,0,0,0,371,0,0
+erythroid,2,16,215,Erythroid progenitors,0,0,1,214,0,0
+erythroid,3,19,194,Erythrocytes,0,0,154,40,0,0
+myeloid,0,13,248,HSPCs,0,0,0,0,244,4
+myeloid,1,12,248,Monocyte progenitors,1,0,0,0,89,158
+myeloid,2,24,70,HSPCs,0,0,0,0,66,4
+myeloid,3,10,293,Monocyte progenitors,95,0,0,0,2,196
+myeloid,4,15,232,CD14+ Monocytes,231,0,0,0,0,1

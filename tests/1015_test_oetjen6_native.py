@@ -1,7 +1,7 @@
 """Pure helpers of `Real Data/Oetjen Bone Marrow/1015_oetjen6_native_decipher.py`: branch columns,
 per-branch decipher time, the scIB metrics (batch ASW, graph connectivity, graph iLISI, DPT root,
 trajectory conservation), reconstruction R^2, trajectory sanity check. No training (the script
-imports decipher/wandb/scanpy only inside functions not tested here)."""
+imports decipher/scanpy only inside functions not tested here)."""
 
 import importlib.util
 from pathlib import Path

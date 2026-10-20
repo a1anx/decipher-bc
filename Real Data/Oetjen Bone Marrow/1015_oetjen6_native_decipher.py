@@ -44,7 +44,7 @@ Writes under --out-dir (default `1015_oetjen6_native/` next to this script):
     csv/seed<k>_loss.csv, csv/seed<k>_vspace.csv (obs, v, z, per-branch decipher time and DPTs),
     csv/seed<k>_metrics.csv (space, metric, branch, value), csv/seed<k>_traj_clusters.csv,
     reconstruction/seed<k>_recon.png, vspace/seed<k>_vspace.png, seed<k>_meta.json,
-    _models/<run_id>/ (package save folder), logs/ (for nohup logs), wandb/ (wandb run files).
+    _models/<run_id>/ (package save folder), logs/ (for nohup logs).
 """
 
 import argparse
@@ -66,7 +66,6 @@ DATASET = "oetjen6"
 LEARNING_RATE = 1e-3
 BETA = 0.1
 OBS_KEEP = ["split", "sample", "cell_type", "lineage", "ref_pseudotime"]
-WANDB = {"entity": "jpark-columbia", "project": "decipher-bc-oetjen", "group": "native-scdecipher"}
 BRANCHES = {"erythroid_branch": ["HSC", "erythroid"], "myeloid_branch": ["HSC", "myeloid"]}
 ROTATION = {
     "v1_col": "cell_type",
@@ -379,14 +378,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--seed", type=int, required=True, help="decipher seed (init, batch order)")
     parser.add_argument("--max-epochs", type=int, default=1000)
-    parser.add_argument("--no-wandb", action="store_true")
     parser.add_argument("--out-dir", type=Path, default=HERE / "1015_oetjen6_native")
     parser.add_argument(
         "--src", type=Path, default=SRC, help="shared h5ad; <src stem>.sha256 must sit beside it"
     )
-    parser.add_argument(
-        "--dataset", default=DATASET, help="name for wandb config/tags, run name, plot title"
-    )
+    parser.add_argument("--dataset", default=DATASET, help="name for run name, plot title")
     args = parser.parse_args()
 
     import matplotlib
@@ -425,27 +421,6 @@ def main() -> None:
         seed=args.seed, learning_rate=LEARNING_RATE, beta=BETA, n_epochs=args.max_epochs
     )
 
-    run = None
-    if not args.no_wandb:
-        import wandb
-
-        assert hasattr(wandb, "init"), f"`wandb` resolved to a non-package: {wandb.__path__}"
-        run = wandb.init(
-            **WANDB,
-            name=f"native_{args.dataset}_{tag}",
-            dir=str(out),
-            tags=[args.dataset],
-            config={
-                "dataset": args.dataset,
-                "scdecipher": version("scdecipher"),
-                "seed": args.seed,
-                **config.to_dict(),
-                "h5ad_sha256": h5ad_sha,
-                "h5ad_sha256_matches": h5ad_sha == expected_sha,
-                "n_cells_total": adata.n_obs,
-                "n_genes": adata.n_vars,
-            },
-        )
     lap("load")
 
     # 2. train (package wrapped: per-epoch losses, file split, save folder)
@@ -469,8 +444,6 @@ def main() -> None:
         }
         rows.append(row)
         step.update(loss=0.0, n=0)
-        if run is not None:
-            run.log(row)
         return out_ll
 
     def file_split(adata, val_frac, seed):
@@ -575,7 +548,7 @@ def main() -> None:
     plt.close(fig)
     lap("vspace_png")
 
-    # 8. tables, meta, wandb summary
+    # 8. tables, meta
     time_cols = [f"decipher_time_{n}" for n in TRAJECTORIES]
     dpt_cols = [f"dpt_{s}_{n}" for n in TRAJECTORIES for s in spaces]
     table = adata.obs[
@@ -603,11 +576,6 @@ def main() -> None:
         "final_val_nll": float(loss["val_nll"].iloc[-1]),
         **metric_summary,
     }
-    if run is not None:
-        run.log(
-            {"reconstruction": wandb.Image(str(recon_png)), "vspace": wandb.Image(str(vspace_png))}
-        )
-        run.summary.update(summary)
     lap("save")
     meta = {
         "dataset": args.dataset,
@@ -624,14 +592,11 @@ def main() -> None:
         "rotation": adata.uns["decipher"]["rotation"].tolist(),
         "trajectory_cluster_ids": paths,
         "sanity": sanity,
-        "wandb_url": run.url if run is not None else None,
         "seconds": stages,
         "seconds_per_epoch": seconds_per_epoch,
     }
     (out / f"{tag}_meta.json").write_text(json.dumps(meta, indent=2))
     print(json.dumps(meta, indent=2), flush=True)
-    if run is not None:
-        run.finish()
 
 
 if __name__ == "__main__":

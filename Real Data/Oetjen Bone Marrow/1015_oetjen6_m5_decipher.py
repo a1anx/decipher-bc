@@ -14,7 +14,7 @@ model5e: add `--preset model5e` (and a different `--out-dir`). oetjen5:
         --src "Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad" --dataset oetjen5 \
         --out-dir "Real Data/Oetjen Bone Marrow/1016_oetjen5_m5"
 `--src` / `--dataset` behave as in the native script (sha256 from `<src stem>.sha256`; dataset in
-the wandb config and tags, the run name `<preset>_<dataset>_seed<k>` and the plot title).
+the run name `<preset>_<dataset>_seed<k>` and the plot title).
 
 What differs from the native run:
     model           `decipher_m5` preset `model5` (batch enters encoder_x_to_z and decoder_z_to_x
@@ -22,7 +22,7 @@ What differs from the native run:
     batch           `obs["batch"]` = `obs["sample"]` (one level per sample), `batch_key="batch"`
     weights kept    the lowest-val-NLL epoch (`decipher_m5` restores it; native keeps the last)
     losses          read from `decipher.train_losses_` / `val_losses_` (same per-cell units as the
-                    native wrappers) and replayed to wandb after training, step = epoch
+                    native wrappers)
     reconstruction  `decipher_m5.tl.reconstruction_r2_log1p`: each cell decoded in its own batch
     z               `decipher_z` is the batch-averaged frame; `decipher_z_raw` (the guide's own z,
                     batch included) is written to the v-space CSV but not scored
@@ -53,7 +53,6 @@ _spec.loader.exec_module(native)
 
 PRESET_CHOICES = ("model5", "model5e")
 BATCH_COL = "batch"
-WANDB = {"entity": "jpark-columbia", "project": "decipher-bc-oetjen"}
 
 
 def batch_shift_norms(decipher, preset: str, batch_levels: list[str]) -> dict[str, float]:
@@ -150,17 +149,14 @@ def main() -> None:
         "--dim-batch-embedding",
         type=int,
         default=None,
-        help="model5e embedding size d_e (default: the package's 8); adds _d<d_e> to wandb names",
+        help="model5e embedding size d_e (default: the package's 8); adds _d<d_e> to run names",
     )
     parser.add_argument("--max-epochs", type=int, default=1000)
-    parser.add_argument("--no-wandb", action="store_true")
     parser.add_argument("--out-dir", type=Path, default=HERE / "1015_oetjen6_m5")
     parser.add_argument(
         "--src", type=Path, default=native.SRC, help="shared h5ad; <src stem>.sha256 beside it"
     )
-    parser.add_argument(
-        "--dataset", default=native.DATASET, help="name for wandb config/tags, run name, title"
-    )
+    parser.add_argument("--dataset", default=native.DATASET, help="name for run name, title")
     args = parser.parse_args()
 
     import matplotlib
@@ -204,7 +200,6 @@ def main() -> None:
         if args.dim_batch_embedding is not None
         else {}
     )
-    arm = args.preset + (f"_d{args.dim_batch_embedding}" if extra else "")
     config = dc.tl.DecipherConfig(
         **PRESETS[args.preset],
         **extra,
@@ -214,31 +209,6 @@ def main() -> None:
         n_epochs=args.max_epochs,
     )
 
-    run = None
-    if not args.no_wandb:
-        import wandb
-
-        assert hasattr(wandb, "init"), f"`wandb` resolved to a non-package: {wandb.__path__}"
-        run = wandb.init(
-            **WANDB,
-            group=f"m5-{arm}",
-            name=f"{arm}_{args.dataset}_{tag}",
-            dir=str(out),
-            tags=[args.dataset],
-            config={
-                "dataset": args.dataset,
-                "package": "decipher_m5",
-                "preset": args.preset,
-                "seed": args.seed,
-                **config.to_dict(),
-                "batch_key": BATCH_COL,
-                "batch_source": "sample",
-                "h5ad_sha256": h5ad_sha,
-                "h5ad_sha256_matches": h5ad_sha == expected_sha,
-                "n_cells_total": adata.n_obs,
-                "n_genes": adata.n_vars,
-            },
-        )
     lap("load")
 
     # 2. train (file split, save folder; the package restores the best-val-NLL weights)
@@ -261,9 +231,6 @@ def main() -> None:
     )
     assert np.allclose(loss["val_nll"], val_losses), "recorded val_nll != package val_losses"
     loss.to_csv(out / "csv" / f"{tag}_loss.csv", index=False)
-    if run is not None:
-        for row in loss.to_dict("records"):
-            run.log({"train_elbo": row["train_elbo"], "val_nll": row["val_nll"]}, step=row["epoch"])
     lap("train")
     seconds_per_epoch = round(stages["train"] / len(loss), 2)
 
@@ -330,7 +297,7 @@ def main() -> None:
     plt.close(fig)
     lap("vspace_png")
 
-    # 8. tables, meta, wandb summary
+    # 8. tables, meta
     time_cols = [f"decipher_time_{n}" for n in native.TRAJECTORIES]
     table = adata.obs[
         native.OBS_KEEP
@@ -372,11 +339,6 @@ def main() -> None:
         "final_val_nll": float(loss["val_nll"].iloc[-1]),
         **metric_summary,
     }
-    if run is not None:
-        run.log(
-            {"reconstruction": wandb.Image(str(recon_png)), "vspace": wandb.Image(str(vspace_png))}
-        )
-        run.summary.update({**summary, "batch_shift_norm": shift_norms, **emb_norms})
     lap("save")
     meta = {
         "dataset": args.dataset,
@@ -400,14 +362,11 @@ def main() -> None:
         "rotation": adata.uns["decipher"]["rotation"].tolist(),
         "trajectory_cluster_ids": paths,
         "sanity": sanity,
-        "wandb_url": run.url if run is not None else None,
         "seconds": stages,
         "seconds_per_epoch": seconds_per_epoch,
     }
     (out / f"{tag}_meta.json").write_text(json.dumps(meta, indent=2))
     print(json.dumps(meta, indent=2), flush=True)
-    if run is not None:
-        run.finish()
 
 
 if __name__ == "__main__":

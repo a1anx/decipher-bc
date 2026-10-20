@@ -1,0 +1,166 @@
+{
+  "dataset": "oetjen5",
+  "src": "/home/jihyunpark/decipher-bc/Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad",
+  "package": "decipher_models3",
+  "decipher_models3_file": "/tmp/claude-1047/-home-jihyunpark-decipher-bc/66be67da-42bd-4a88-be55-01ce1884ed39/scratchpad/runtree_P05/decipher_models3/__init__.py",
+  "preset": "model5r0",
+  "seed": 2,
+  "run_mode": "final",
+  "lambda_overrides": {},
+  "lambda_tag": null,
+  "tagged_final": null,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 2,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 6472,
+    "batch_conditioning": "decoder_encoder",
+    "mean_field_v": false,
+    "batch_embedding_mode": "concat_x",
+    "n_batches": 5,
+    "dim_batch_embedding": 8,
+    "batch_key": "batch",
+    "recon_batch": "residual",
+    "batch_emb_init": "zero",
+    "residual_hidden": null,
+    "prior_batch": "none",
+    "v_invariance": "none",
+    "lambda_inv": 1.0,
+    "lambda_r": 1.0,
+    "cycle_v": false,
+    "lambda_c": 1.0,
+    "prior": "normal",
+    "n_pseudo_inputs": 100,
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "P",
+    "G",
+    "T",
+    "W",
+    "R"
+  ],
+  "h5ad_sha256": "9571cd270fd6631da163b539d183cdbe2f4da361ae906fa050b3acb140d16d91",
+  "h5ad_sha256_matches": true,
+  "n_cells": 7191,
+  "n_genes": 2000,
+  "run_id": "2026-10-17-23-09-39-sugary-silver-algorithm",
+  "weights_from": "best val-NLL epoch (decipher_models3 restore)",
+  "penalty_history": {},
+  "r2_overall": 0.8941380471809932,
+  "r2_median_per_gene": 0.35892085570307647,
+  "sanity_pass": true,
+  "n_epochs_run": 80,
+  "best_epoch": 69,
+  "best_val_nll": 1052.8783031988874,
+  "final_val_nll": 1054.274078581363,
+  "pca/batch_asw": 0.8567642569541931,
+  "pca/graph_ilisi": 0.010130439180510653,
+  "pca/graph_connectivity": 0.9983325300098693,
+  "v/batch_asw": 0.7847926255403265,
+  "v/graph_ilisi": 0.22758360684233175,
+  "v/graph_connectivity": 0.9429527008330753,
+  "z/batch_asw": 0.8321583966126441,
+  "z/graph_ilisi": 0.1065255265582512,
+  "z/graph_connectivity": 0.9966287295789361,
+  "v/trajectory_conservation/erythroid": 0.5039068407363678,
+  "z/trajectory_conservation/erythroid": 0.9627068403305276,
+  "v/decipher_time_conservation/erythroid": 0.8567975429943242,
+  "v/trajectory_conservation/myeloid": 0.5109130808768693,
+  "z/trajectory_conservation/myeloid": 0.9488226825470192,
+  "v/decipher_time_conservation/myeloid": 0.9052612994626916,
+  "batch_emb_norm": {
+    "P": 0.8288999795913696,
+    "G": 0.6834999918937683,
+    "T": 0.8429999947547913,
+    "W": 1.3444000482559204,
+    "R": 1.2513999938964844
+  },
+  "batch_shift_norm": {
+    "P": 349.7972,
+    "G": 357.4137,
+    "T": 348.0414,
+    "W": 352.0052,
+    "R": 358.6142
+  },
+  "batch_shift_norm_centered": {
+    "P": 17.8546,
+    "G": 18.7213,
+    "T": 17.6811,
+    "W": 17.328,
+    "R": 18.0437
+  },
+  "rotation": [
+    [
+      0.3568862215918719,
+      0.9341478602651067
+    ],
+    [
+      -0.9341478602651067,
+      0.3568862215918719
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "3",
+      "16",
+      "23",
+      "5",
+      "12",
+      "19"
+    ],
+    "myeloid": [
+      "3",
+      "7",
+      "9",
+      "15"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "3",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "19",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "3",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "15",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "seconds": {
+    "load": 2.4,
+    "train": 235.3,
+    "rotate": 0.7,
+    "decipher_time": 12.3,
+    "metrics": 39.7,
+    "reconstruction": 1.1,
+    "vspace_png": 0.5,
+    "save": 1.8
+  },
+  "seconds_per_epoch": 2.94
+}

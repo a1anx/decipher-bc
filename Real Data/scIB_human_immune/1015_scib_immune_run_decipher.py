@@ -6,7 +6,7 @@ Run from the repo root with `.venv/bin/python`:
 
 Input: 2000 batch-aware HVGs (flavor seurat_v3 on the raw-counts layer, batch_key=batch), raw counts as X, 90/10 train/val split
 stratified by batch. model5 conditions on `batch` (9 batches); native is batch-blind.
-Per run: wandb curves (train_elbo, val_nll per epoch), reconstruction diagnostic and v-space PNGs,
+Per run: reconstruction diagnostic and v-space PNGs,
 a small h5ad (obs + decipher_v/z) and a ledger row. Re-running resumes ok rows.
 
 Reuses the worker setup, shared-split patch and git helper from the BMMC driver.
@@ -29,8 +29,6 @@ SRC_H5AD = os.path.join(_HERE, "data", "Immune_ALL_human.h5ad")
 SHARED_H5AD = os.path.join(OUT, "immune_no_villani_hvg2000_seurat_v3.h5ad")
 
 PACKAGE = "decipher_m5"
-WANDB_ENTITY = "jpark-columbia"
-WANDB_PROJECT = "decipher-bc-scib-immune"
 DEVICE = "cpu"
 LEARNING_RATE = 1e-3  # as in the simulation and BMMC runs
 BETA = 0.1
@@ -46,7 +44,7 @@ SHARED_OBS = ["split", "batch", "cell_type", "tissue", "dpt_pseudotime"]
 LEDGER_COLUMNS = [
     "run_id", "config", "n_batches", "seed", "n_cells", "n_train", "n_val", "n_epochs", "best_epoch",
     "final_train_elbo", "final_val_nll", "r2_overall", "seconds_total", "peak_rss_mb",
-    "git_sha", "git_dirty", "wandb_run_id", "wandb_url", "status", "error",
+    "git_sha", "git_dirty", "status", "error",
 ]  # fmt: skip
 
 
@@ -71,8 +69,7 @@ def build_shared() -> str:
     adata.obs["tissue"] = adata.obs["tissue"].astype(str)
     adata.obs["cell_type"] = adata.obs["final_annotation"].astype(str)
     sc.pp.highly_variable_genes(
-        adata, n_top_genes=N_HVG, batch_key="batch", flavor=HVG_FLAVOR,
-        layer="counts", subset=False
+        adata, n_top_genes=N_HVG, batch_key="batch", flavor=HVG_FLAVOR, layer="counts", subset=False
     )
     adata = adata[:, adata.var["highly_variable"]].copy()
     adata.X = adata.layers["counts"].copy()
@@ -98,29 +95,6 @@ def make_jobs(configs=None, seeds=None, **shared) -> list[dict]:
     ]
 
 
-def _start_wandb(job):
-    if not job["use_wandb"]:
-        return None
-    try:
-        import wandb
-
-        return wandb.init(
-            entity=WANDB_ENTITY,
-            project=WANDB_PROJECT,
-            group=job["config"],
-            job_type="scib_immune_run",
-            name=f"{job['run_id']}_{job['tag']}",
-            tags=[job["config"], f"hvg{N_HVG}", job["tag"]],
-            config={"config": job["config"], "preset": job["preset"], "decipher_seed": job["seed"],
-                    "dropped_batch": DROP_BATCH, "hvg_flavor": HVG_FLAVOR, "package": PACKAGE,
-                    "max_cells": job["max_cells"], "max_epochs": job["max_epochs"]},
-            reinit="finish_previous",
-        )  # fmt: skip
-    except Exception as e:  # degrade to CSV-only
-        print(f"  [wandb] init failed, CSV-only: {type(e).__name__}: {e}", flush=True)
-        return None
-
-
 def write_vspace(adata, job, fig_dir):
     import matplotlib.pyplot as plt
 
@@ -130,14 +104,16 @@ def write_vspace(adata, job, fig_dir):
     fig = dc.pl.decipher(shuffled, color=panels, basis="decipher_v", ncols=3, wspace=0.45)
     for ax, name in zip(fig.axes, panels):  # the package otherwise titles every panel
         ax.set_title(name)
-    fig.suptitle(f"scIB immune | {job['config']} | decipher seed={job['seed']}", y=1.05, fontsize=11)
+    fig.suptitle(
+        f"scIB immune | {job['config']} | decipher seed={job['seed']}", y=1.05, fontsize=11
+    )
     path = os.path.join(fig_dir, f"vspace_{job['config']}_ds{job['seed']}.png")
     fig.savefig(path, dpi=120, bbox_inches="tight")
     plt.close(fig)
     return path
 
 
-def write_reconstruction(decipher, adata, job, fig_dir, run):
+def write_reconstruction(decipher, adata, job, fig_dir):
     import matplotlib.pyplot as plt
 
     dc = importlib.import_module(PACKAGE)
@@ -153,15 +129,11 @@ def write_reconstruction(decipher, adata, job, fig_dir, run):
     fig.suptitle(f"{job['config']} | decipher seed={job['seed']}", y=1.02, fontsize=11)
     path = os.path.join(fig_dir, f"reconstruction_{job['config']}_ds{job['seed']}.png")
     fig.savefig(path, dpi=120, bbox_inches="tight")
-    if run is not None:
-        import wandb
-
-        run.log({"reconstruction_diagnostic": wandb.Image(fig)})
     plt.close(fig)
     return path
 
 
-def _train(job, run) -> dict:
+def _train(job) -> dict:
     import anndata as ad
     import resource
 
@@ -207,25 +179,12 @@ def _train(job, run) -> dict:
         seconds_total=round(seconds, 1), git_sha=sha, git_dirty=dirty,
     )  # fmt: skip
 
-    if run is not None:
-        run.config.update(config.to_dict(), allow_val_change=True)
-        for epoch, (tr, va) in enumerate(zip(train_losses, val_losses)):
-            run.log({"train_elbo": tr, "val_nll": va}, step=epoch)
-        final = dict(best_epoch=rec["best_epoch"], final_train_elbo=rec["final_train_elbo"], final_val_nll=rec["final_val_nll"],
-                     n_epochs_trained=rec["n_epochs"], seconds_total=rec["seconds_total"])  # fmt: skip
-        run.log(final)
-        run.summary.update(final)
-
     fig_dir = os.path.join(job["out_dir"], "figs")
     os.makedirs(fig_dir, exist_ok=True)
     r2 = dc.tl.reconstruction_r2_log1p(decipher, adata)
     rec["r2_overall"] = float(r2["r2_overall"])
-    write_reconstruction(decipher, adata, job, fig_dir, run)
-    vpath = write_vspace(adata, job, fig_dir)
-    if run is not None:
-        import wandb
-
-        run.log({"vspace": wandb.Image(vpath)})
+    write_reconstruction(decipher, adata, job, fig_dir)
+    write_vspace(adata, job, fig_dir)
 
     out = ad.AnnData(obs=adata.obs[OBS_KEEP].copy())
     out.obsm["decipher_v"] = np.asarray(adata.obsm["decipher_v"])
@@ -238,22 +197,14 @@ def _train(job, run) -> dict:
 def run_one(job) -> dict:
     """Train one job. Returns a ledger row; never raises."""
     record = {k: job[k] for k in ("run_id", "config", "seed")}
-    run = _start_wandb(job)
-    record["wandb_run_id"] = getattr(run, "id", None)
-    record["wandb_url"] = getattr(run, "url", None)
     try:
-        record.update(_train(job, run), status="ok", error=None)
+        record.update(_train(job), status="ok", error=None)
     except Exception as e:  # one bad run must not kill the sweep
         record.update(status="failed", error=f"{type(e).__name__}: {e}")
-        if run is not None:
-            run.summary["status"] = "failed"
-            run.summary["error"] = record["error"]
     finally:
-        if run is not None:
-            import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
 
-            plt.close("all")
-            run.finish()
+        plt.close("all")
     return record
 
 
@@ -271,21 +222,19 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     ap.add_argument("--tag", default="seurat_v3")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--no-wandb", action="store_true", help="debug only; CSV ledger only")
     args = ap.parse_args(argv)
 
     out_dir = os.path.join(OUT, "runs", args.tag)
     ledger_path = os.path.join(out_dir, "ledger.csv")
     all_jobs = make_jobs(
         configs=args.configs.split(",") if args.configs else None, seeds=args.seeds,
-        tag=args.tag, use_wandb=not args.no_wandb, max_cells=args.max_cells,
+        tag=args.tag, max_cells=args.max_cells,
         max_epochs=args.max_epochs, out_dir=out_dir, lr=args.lr,
     )  # fmt: skip
     prior = pd.read_csv(ledger_path) if os.path.exists(ledger_path) else None
     done = set() if prior is None else set(prior.loc[prior["status"] == "ok", "run_id"])
     todo = [j for j in all_jobs if j["run_id"] not in done]
     print(f"grid: {len(all_jobs)} runs, to run: {len(todo)}  workers: {args.workers}")
-    print("wandb: " + ("disabled" if args.no_wandb else f"{WANDB_ENTITY}/{WANDB_PROJECT}"))
     if args.dry_run or not todo:
         for j in todo:
             print("   ", j["run_id"], j["preset"])
@@ -296,7 +245,9 @@ def main(argv=None) -> int:
     rows = [] if prior is None else prior[prior["run_id"].isin(done)].to_dict("records")
     t0 = time.time()
     # spawn + one task per child: no inherited RNG/thread state, per-job peak RSS
-    with get_context("spawn").Pool(args.workers, initializer=_worker_init, maxtasksperchild=1) as pool:
+    with get_context("spawn").Pool(
+        args.workers, initializer=_worker_init, maxtasksperchild=1
+    ) as pool:
         for i, rec in enumerate(pool.imap_unordered(run_one, todo), 1):
             rows.append(rec)
             pd.DataFrame(rows).reindex(columns=LEDGER_COLUMNS).to_csv(ledger_path, index=False)

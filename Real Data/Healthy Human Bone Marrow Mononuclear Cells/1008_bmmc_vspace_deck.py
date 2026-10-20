@@ -27,8 +27,8 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.neighbors import KNeighborsRegressor
 
-import decipher_m5 as dc
-from decipher_m5.tools.decipher import rot
+import decipher_models3 as dc
+from decipher_models3.tools.decipher import rot
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]

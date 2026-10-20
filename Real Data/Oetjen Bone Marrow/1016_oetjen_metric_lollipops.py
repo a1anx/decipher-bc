@@ -31,8 +31,8 @@ DATASETS = {
 }
 MODELS = ["native", "model5", "model5e", "model5e16"]
 DEFAULT_MODELS = ["native", "model5", "model5e"]
-# model5e is batch-embedding size d_e = 8 (package default), model5e16 is d_e = 16
-TICKS = {"model5e": "model5e\n(d_e=8)", "model5e16": "model5e\n(d_e=16)"}
+# model5e is batch-embedding size D = 8 (package default), model5e16 is D = 16
+TICKS = {"model5e": "model5e\n(D=8)", "model5e16": "model5e\n(D=16)"}
 SEEDS = [0, 1, 2]
 DOT = "#2a78d6"
 STEM = "#8a8984"

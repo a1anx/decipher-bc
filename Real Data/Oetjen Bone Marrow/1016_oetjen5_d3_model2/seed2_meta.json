@@ -1,0 +1,136 @@
+{
+  "dataset": "oetjen5",
+  "src": "/home/jihyunpark/decipher-bc/Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad",
+  "package": "decipher_models3",
+  "preset": "model2",
+  "seed": 2,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 2,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 6472,
+    "batch_conditioning": "decoder_encoder",
+    "mean_field_v": false,
+    "batch_embedding_mode": "concat_z",
+    "n_batches": 5,
+    "dim_batch_embedding": 8,
+    "batch_key": "batch",
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "P",
+    "G",
+    "T",
+    "W",
+    "R"
+  ],
+  "h5ad_sha256": "9571cd270fd6631da163b539d183cdbe2f4da361ae906fa050b3acb140d16d91",
+  "h5ad_sha256_matches": true,
+  "n_cells": 7191,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-20-44-55-magnetic-rust-sauce",
+  "weights_from": "best val-NLL epoch (decipher_models3 restore)",
+  "r2_overall": 0.8814665292282609,
+  "r2_median_per_gene": 0.2907241973153006,
+  "sanity_pass": true,
+  "n_epochs_run": 68,
+  "best_epoch": 57,
+  "best_val_nll": 1082.7091446453408,
+  "final_val_nll": 1083.0379867872045,
+  "pca/batch_asw": 0.8567642569541931,
+  "pca/graph_ilisi": 0.010130439180510653,
+  "pca/graph_connectivity": 0.9983325300098693,
+  "v/batch_asw": 0.7469421864632139,
+  "v/graph_ilisi": 0.25309901175341953,
+  "v/graph_connectivity": 0.8179247274811878,
+  "z/batch_asw": 0.7824759822296375,
+  "z/graph_ilisi": 0.00759187092201663,
+  "z/graph_connectivity": 0.94708671674339,
+  "v/trajectory_conservation/erythroid": 0.47233381455523415,
+  "z/trajectory_conservation/erythroid": 0.8473509003401725,
+  "v/decipher_time_conservation/erythroid": 0.8237577348516517,
+  "v/trajectory_conservation/myeloid": 0.9112919875176009,
+  "z/trajectory_conservation/myeloid": 0.904959706899477,
+  "v/decipher_time_conservation/myeloid": 0.8947958064266884,
+  "batch_emb_norm": {
+    "P": 2.674099922180176,
+    "G": 1.7989000082015991,
+    "T": 2.473900079727173,
+    "W": 2.4333999156951904,
+    "R": 3.149899959564209
+  },
+  "batch_shift_norm": null,
+  "rotation": [
+    [
+      0.9283679330160727,
+      -0.37166245566032724
+    ],
+    [
+      0.37166245566032724,
+      0.9283679330160727
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "17",
+      "25",
+      "6",
+      "14",
+      "20"
+    ],
+    "myeloid": [
+      "17",
+      "10",
+      "11",
+      "13"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "17",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "20",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "17",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "13",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "seconds": {
+    "load": 2.4,
+    "train": 206.4,
+    "rotate": 1.0,
+    "decipher_time": 14.5,
+    "metrics": 45.6,
+    "reconstruction": 1.1,
+    "vspace_png": 0.4,
+    "save": 0.3
+  },
+  "seconds_per_epoch": 3.04
+}

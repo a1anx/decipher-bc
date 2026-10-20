@@ -1,6 +1,6 @@
 """Pure helpers of `Real Data/Oetjen Bone Marrow/1015_oetjen6_m5_decipher.py`: the batch column
 model5 is conditioned on and the file-split override of `decipher_m5`'s train/val split. No
-training (the script imports decipher_m5, wandb and scanpy only inside `main`)."""
+training (the script imports decipher_m5 and scanpy only inside `main`)."""
 
 import importlib.util
 from pathlib import Path

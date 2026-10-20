@@ -1,16 +1,16 @@
 r"""Post-hoc aggregate summary figures for the 504-run bifurcation sweep (tag `sweep0918_ds3`).
 
 ADDED 2026-09-18. `train_and_compute_rho_r2_bifurcation`
-(0918_simulated_data_pipeline_bifurcation.py) never ported wandb_sigma_sweep.py's
-`aggregate_runs`/`plot_aggregate` step, so this sweep's summary figures were never produced. This
+(0918_simulated_data_pipeline_bifurcation.py) never ported the earlier sigma
+sweep's `aggregate_runs`/`plot_aggregate` step, so this sweep's summary figures were never produced. This
 script builds them post-hoc, purely from the sweep's CSV ledger -- no retraining, no h5ad reads,
-no wandb API calls. It is a direct port of `aggregate_runs`/`plot_aggregate` from
-wandb_sigma_sweep.py, adapted to this sweep's actual schema:
+It is a direct port of `aggregate_runs`/`plot_aggregate` from
+the earlier sigma sweep script, adapted to this sweep's actual schema:
 
     model in {native, model2, model5} x batch_mode in {z, genes} x bifurcation in {bif, nobif}
 
 collapsed into `arm` (a ready-made human label: "Base Decipher (z)", "Base Decipher (genes)",
-"Set1 vz2", "Set3 zx2" -- 4 of them), which plays the role wandb_sigma_sweep.py's `model_tag` did.
+"Set1 vz2", "Set3 zx2" -- 4 of them), which plays the role the earlier sigma sweep's `model_tag` did.
 
 `rho_plus`/`rho_minus`/`branch_asw` are only meaningful when bifurcation == "bif" (NaN otherwise
 by design -- see the comment at 0918_simulated_data_pipeline_bifurcation.py:622), so this script
@@ -49,7 +49,7 @@ METRIC_LABELS = {
     "r2_per_gene_median": "R2 per-gene median (reconstruction)",
 }
 
-# no fixed color table for `arm` values (unlike wandb_sigma_sweep.py's MODEL_COLORS). Colors are
+# no fixed color table for `arm` values (unlike the earlier sigma sweep's MODEL_COLORS). Colors are
 # assigned by position in the (small, fixed) sorted arm list rather than a hash of the string --
 # a hash risks collisions between similar labels (e.g. "Base Decipher (genes)" vs "Base Decipher
 # (z)" differ only in a few characters and hashed to the same color in an earlier version of this
@@ -68,7 +68,7 @@ def arm_colors(arms):
 def aggregate_runs(ok, metrics):
     """Collapse raw runs in the order the nesting demands: decipher_seeds first, then seeds.
 
-    Direct port of wandb_sigma_sweep.py's `aggregate_runs`, with AGG_KEYS swapped to
+    Direct port of the earlier sigma sweep's `aggregate_runs`, with AGG_KEYS swapped to
     ["arm", "shift_sigma"]. `ok` must already be filtered to error-free rows.
 
     Returns
@@ -116,7 +116,7 @@ def aggregate_runs(ok, metrics):
 def plot_aggregate(metric, run_log, world, summary):
     """One figure per metric: a single panel overlaying all arms (all 4 models, both batch_modes).
 
-    Adapted from wandb_sigma_sweep.py's `plot_aggregate` (raw points, world-mean error bars,
+    Adapted from the earlier sigma sweep's `plot_aggregate` (raw points, world-mean error bars,
     world-to-world SD band, all per arm).
     """
     jitter_rng = np.random.default_rng(0)
@@ -129,8 +129,10 @@ def plot_aggregate(metric, run_log, world, summary):
         color = colors[arm]
         raw = run_log[run_log["arm"] == arm].dropna(subset=[metric])
         wm = world[world["arm"] == arm].dropna(subset=[metric])
-        s = summary[summary["arm"] == arm].dropna(subset=[f"{metric}_mean"]).sort_values(
-            "shift_sigma"
+        s = (
+            summary[summary["arm"] == arm]
+            .dropna(subset=[f"{metric}_mean"])
+            .sort_values("shift_sigma")
         )
 
         jitter = np.exp(jitter_rng.normal(0, 0.045, size=len(raw)))

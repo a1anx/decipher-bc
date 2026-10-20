@@ -88,9 +88,7 @@ from sklearn.metrics import silhouette_score
 # `decipher_models` and `decipher` are directories at the repo root, not installed packages -- they
 # import only when the repo root is on sys.path. Deriving it from __file__ means this script (and
 # the notebooks that import it) work from any working directory.
-_REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-)
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
@@ -630,7 +628,6 @@ def train_and_compute_rho_r2_bifurcation(
     branching_t: float = 0.3,
     branch_prob: float = 0.5,
     branch_scale: float = 1.0,
-    wandb_run=None,
     # ADDED 2026-09-24 -- threaded to the simulator AND into the output filenames via _data_tag.
     hole_size: int = 1,
     n_holes: int = 0,
@@ -641,13 +638,6 @@ def train_and_compute_rho_r2_bifurcation(
     Same shape as `0801_simulated_data_pipeline.train_and_compute_rho_r2`, with two differences:
     the data has a fork in it, and pseudotime is scored along ONE TRAJECTORY PER ARM rather than a
     single spline that would have to zigzag across the fork.
-
-    wandb_run : wandb Run or None
-        ADDED 2026-09-18. When given, the per-epoch loss curves, the diagnostic figure and the
-        final metrics are logged to it. Taken as a parameter rather than returning the decipher
-        object because the losses and the figure only exist inside this function, and adding a
-        return value would break every existing caller's unpacking.
-        None keeps this function wandb-free, so the tests and the smoke script are unaffected.
 
     Returns
     -------
@@ -684,15 +674,6 @@ def train_and_compute_rho_r2_bifurcation(
         config,
         plot_kwargs={"color": "batch", "title": f"shift_sigma={shift_sigma}"},
     )
-
-    if wandb_run is not None:
-        # decipher_train fills in dim_genes/n_cells/n_batches/batch_key via
-        # config.initialize_from_adata, so the config is only complete after training.
-        wandb_run.config.update(config.to_dict(), allow_val_change=True)
-        for epoch, (train_elbo, val_nll) in enumerate(
-            zip(decipher.train_losses_, decipher.val_losses_)
-        ):
-            wandb_run.log({"train_elbo": train_elbo, "val_nll": val_nll}, step=epoch)
 
     # Reconstruction diagnostic -- computed right after training so we still have the in-memory
     # decipher object with train_losses_ / val_losses_.
@@ -735,10 +716,6 @@ def train_and_compute_rho_r2_bifurcation(
         dpi=120,
         bbox_inches="tight",
     )
-    if wandb_run is not None:
-        import wandb
-
-        wandb_run.log({"reconstruction_diagnostic": wandb.Image(fig)})
     plt.close(fig)
 
     # Trajectories -- one per arm, sharing the trunk clusters.
@@ -776,24 +753,6 @@ def train_and_compute_rho_r2_bifurcation(
     branch_asw = branch_silhouette(adata, branching_t)
     adata.uns["branch_asw"] = branch_asw
     adata.uns["trajectory_names"] = list(orders.keys())
-
-    if wandb_run is not None:
-        # Both log() and summary: log() makes it plottable against the sweep axes, summary makes
-        # it sortable in the runs table. NaN arm metrics on the no-bifurcation half are recorded
-        # as-is -- they mean "no fork existed", not "measurement missing".
-        final = {
-            "rho": abs(rho),
-            "rho_plus": arm_rhos["rho_plus"],
-            "rho_minus": arm_rhos["rho_minus"],
-            "branch_asw": branch_asw,
-            "r2_overall": r2_overall,
-            "r2_per_gene_median": r2_per_gene_median,
-            "n_trajectories": len(orders),
-        }
-        wandb_run.log(final)
-        for k, v in final.items():
-            wandb_run.summary[k] = v
-        wandb_run.summary["status"] = "success"
 
     # Save trained adata. As in aug1, two sweeps on the same calendar day that both leave
     # notebook_tag unset will overwrite each other's h5ads -- pass a distinct tag per notebook.

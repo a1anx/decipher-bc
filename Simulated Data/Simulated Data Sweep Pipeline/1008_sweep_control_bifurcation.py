@@ -9,7 +9,7 @@ narrows that driver's grid to the arms native:genes and model5:genes, bifurcatio
 Run it as a file on disk (the spawn pool re-imports __main__ from its path):
     python "Simulated Data/Simulated Data Sweep Pipeline/1008_sweep_control_bifurcation.py" --dry-run
     nohup python ... --workers 8 > sweep1008_control.log 2>&1 &
-Flags are the 0918 driver's (--workers, --limit, --no-wandb, --tag, --sigmas, ...). Resumes from
+Flags are the 0918 driver's (--workers, --limit, --tag, --sigmas, ...). Resumes from
 `<MMDD>/sweep1008_control_sweep_log.csv`.
 """
 

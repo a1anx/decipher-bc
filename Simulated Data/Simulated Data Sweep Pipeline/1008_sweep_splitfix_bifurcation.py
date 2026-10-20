@@ -51,10 +51,9 @@ ARMS = [
 BIFURCATIONS = {"bif": 0.3}  # label -> branching_t
 SHIFT_SIGMAS = [0.1, 0.5, 1.0, 2.0, 5.0, 7.5, 10.0]
 SEEDS = [3, 4, 5]  # simulation seed: which DATASET (projections, cells, shifts)
-DECIPHER_SEEDS = [1, 2, 3]  # training seed: SVI init only, same dataset. Matches
-#                                wandb_sigma_sweep.py. Three of them separate training
-#                                variance from simulation variance -- with one, an rho gap
-#                                between arms could just be a lucky initialization.
+# training seed: SVI init only, same dataset. Three of them separate training variance from
+# simulation variance -- with one, an rho gap between arms could just be a lucky initialization.
+DECIPHER_SEEDS = [1, 2, 3]
 
 # data size unchanged from the existing aug1 sweeps, for comparability
 SIM_KWARGS = dict(
@@ -65,12 +64,6 @@ NOTEBOOK_TAG = "sweep1008_splitfix"
 PACKAGE = "decipher_models2"  # default model package (--package); recorded per row
 DEFAULT_WORKERS = 1  # this VM has 1 vCPU; raise with --workers on a bigger one
 
-# wandb. Same entity/project conventions as wandb_sigma_sweep.py so this sweep sits alongside the
-# existing ones rather than in a silo. One run per job, initialized inside the worker -- the
-# proven pattern from that script, which also uses a spawn-based process pool.
-WANDB_ENTITY = "jpark-columbia"
-WANDB_PROJECT = "decipher-bc-sigma-sweep"
-WANDB_JOB_TYPE = "bifurcation_sweep_run"
 DEVICE = "cpu"  # the T4's driver is not installed; see the plan. Tiny model, 168 independent
 # jobs, 32 cores -- CPU throughput wins. Kept a parameter so a benchmark can flip it.
 
@@ -78,7 +71,7 @@ DEVICE = "cpu"  # the T4's driver is not installed; see the plan. Tiny model, 16
 KEY = ["model", "batch_mode", "bifurcation", "shift_sigma", "seed", "decipher_seed"]
 
 
-def jobs(notebook_tag=NOTEBOOK_TAG, use_wandb=True, run_date=None, package=PACKAGE):
+def jobs(notebook_tag=NOTEBOOK_TAG, run_date=None, package=PACKAGE):
     """The full grid, as a list of dicts. Order is deterministic.
 
     `notebook_tag` is carried IN each job rather than read from module scope by the worker,
@@ -103,7 +96,6 @@ def jobs(notebook_tag=NOTEBOOK_TAG, use_wandb=True, run_date=None, package=PACKA
                                 seed=seed,
                                 decipher_seed=decipher_seed,
                                 notebook_tag=notebook_tag,
-                                use_wandb=use_wandb,
                                 run_date=run_date,
                                 package=package,
                             )
@@ -165,113 +157,6 @@ def _init_worker():
         importlib.import_module(f"{package}.utils").DECIPHER_GLOBALS["save_folder"] = save_folder
 
 
-_WANDB_INIT_RETRIES = 3
-_WANDB_INIT_BACKOFF_S = 5  # doubles each retry, plus jitter -- see below
-
-
-def _start_wandb(job):
-    """One wandb run per job, or None if wandb is disabled/unavailable.
-
-    Never fatal: a wandb outage or a missing login must not take down a multi-hour sweep, so a
-    failure here degrades to CSV-only logging for that job rather than raising.
-
-    MEASURED on the first launch of this 504-run sweep: 205/369 completed jobs (56%!) had no
-    wandb_run_id in the CSV. Every failure was the same error:
-        CommError: Timed out initializing run: POST https://api.wandb.ai/graphql
-        giving up after 1 attempt(s): context deadline exceeded
-    wandb's own init_timeout defaults to 90s (plenty) -- the problem is 16 workers all calling
-    wandb.init() concurrently contend for something (network egress, this API key's rate limit,
-    or the local per-worker wandb-core service), and the SDK does not retry that handshake itself
-    ("giving up after 1 attempt"). So: retry it here, with backoff + jitter so 16 workers retrying
-    in lockstep don't just recreate the same thundering herd on attempt 2.
-    """
-    if not job.get("use_wandb"):
-        return None
-
-    import random
-    import time as _time
-
-    import wandb
-
-    last_exc = None
-    for attempt in range(_WANDB_INIT_RETRIES):
-        if attempt > 0:
-            delay = _WANDB_INIT_BACKOFF_S * (2 ** (attempt - 1)) + random.uniform(0, 3)
-            _time.sleep(delay)
-        try:
-            return _wandb_init(job, wandb)
-        except Exception as e:
-            last_exc = e
-            print(
-                f"  [wandb] init attempt {attempt + 1}/{_WANDB_INIT_RETRIES} failed: "
-                f"{type(e).__name__}: {e}",
-                flush=True,
-            )
-    print(
-        f"  [wandb] init failed after {_WANDB_INIT_RETRIES} attempts, continuing CSV-only: "
-        f"{type(last_exc).__name__}: {last_exc}",
-        flush=True,
-    )
-    return None
-
-
-def _wandb_init(job, wandb):
-    return wandb.init(
-        entity=WANDB_ENTITY,
-        project=WANDB_PROJECT,
-        group=f"{job['model']}_{job['batch_mode']}_{job['bifurcation']}",
-        job_type=WANDB_JOB_TYPE,
-        # decipher_seed was missing here until now -- with 3 decipher seeds, every
-        # (model, bifurcation, batch_mode, sigma, seed) combination produced 3 runs sharing
-        # one display name (visible in the wandb UI as duplicate rows). Not destructive --
-        # wandb's real identity is `id`, and decipher_seed was always in `config` -- but
-        # confusing to read. Matches the h5ad/figure filename convention, which got this
-        # right from the start.
-        name=(
-            f"{job['model']}_{job['bifurcation']}_{job['batch_mode']}"
-            f"_sigma{job['shift_sigma']}_seed{job['seed']}"
-            f"_decipherseed{job['decipher_seed']}"
-        ),
-        tags=[
-            job["model"],
-            job["bifurcation"],
-            f"batchmode_{job['batch_mode']}",
-            f"sigma_{job['shift_sigma']}",
-            job["notebook_tag"],
-        ],
-        config={
-            "arm": job["arm"],
-            "model_tag": job["model"],
-            # the two data axes that distinguish this sweep from the earlier ones
-            "bifurcation": job["bifurcation"],
-            "branching_t": job["branching_t"],
-            "batch_mode": job["batch_mode"],
-            "shift_sigma": job["shift_sigma"],
-            "sim_seed": job["seed"],
-            "decipher_seed": job["decipher_seed"],
-            "package": job["package"],
-            **SIM_KWARGS,
-        },
-        reinit="finish_previous",  # one worker process inits a fresh run per job
-    )
-
-
-# CSV column -> wandb config key, for values known only after training. The pipeline already
-# puts DecipherConfig in the wandb config (n_epochs there is the configured maximum, 1000), and
-# wandb refuses to change an existing key, so the epoch count actually trained gets its own key.
-WANDB_RESULT_KEYS = {
-    "n_train": "n_train",
-    "n_val": "n_val",
-    "n_epochs": "n_epochs_trained",
-    "git_sha": "git_sha",
-    "git_dirty": "git_dirty",
-}
-
-
-def _wandb_result_config(record):
-    return {wandb_key: record[col] for col, wandb_key in WANDB_RESULT_KEYS.items()}
-
-
 def run_one(job):
     """Train one model on one dataset. Returns a CSV row; never raises."""
     import numpy as np
@@ -280,9 +165,6 @@ def run_one(job):
 
     record = {k: job[k] for k in KEY}
     record["arm"] = job["arm"]
-    run = _start_wandb(job)
-    record["wandb_run_id"] = getattr(run, "id", None)
-    record["wandb_url"] = getattr(run, "url", None)
     started = time.time()
     try:
         (
@@ -302,7 +184,6 @@ def run_one(job):
             batch_mode=job["batch_mode"],
             branching_t=job["branching_t"],
             notebook_tag=job["notebook_tag"],
-            wandb_run=run,
             run_date=job["run_date"],
             arm=job["arm"],
             package=job["package"],
@@ -325,8 +206,6 @@ def run_one(job):
             package=job["package"],
             error=None,
         )
-        if run is not None:  # known only after training
-            run.config.update(_wandb_result_config(record))
     except Exception as e:  # one bad cell must not take down 167 others
         record.update(
             rho=np.nan,
@@ -344,17 +223,12 @@ def run_one(job):
             package=job["package"],
             error=f"{type(e).__name__}: {e}",
         )
-        if run is not None:
-            run.summary["status"] = "failed"
-            run.summary["error"] = record["error"]
     finally:
-        if run is not None:
-            # decipher_train ends by calling plot_decipher_v without closing the figure, so every
-            # run leaks one otherwise (noted in wandb_sigma_sweep.py's own teardown).
-            import matplotlib.pyplot as plt
+        # decipher_train ends by calling plot_decipher_v without closing the figure, so every
+        # run leaks one otherwise.
+        import matplotlib.pyplot as plt
 
-            plt.close("all")
-            run.finish()
+        plt.close("all")
     record["seconds"] = round(time.time() - started, 1)
     return record
 
@@ -397,11 +271,6 @@ def main():
         default=None,
         help="override DECIPHER_SEEDS",
     )
-    ap.add_argument(
-        "--no-wandb",
-        action="store_true",
-        help="skip wandb logging (CSV only). Sweeps log to wandb by default.",
-    )
     args = ap.parse_args()
 
     global SHIFT_SIGMAS, SEEDS, DECIPHER_SEEDS
@@ -421,7 +290,6 @@ def main():
 
     all_jobs = jobs(
         notebook_tag=args.tag,
-        use_wandb=not args.no_wandb,
         run_date=today,
         package=args.package,
     )
@@ -441,10 +309,6 @@ def main():
     print(f"to run    : {len(todo)}   workers: {args.workers}   device: {DEVICE}")
     print(f"package   : {args.package}")
     print(f"csv       : {csv_path}")
-    print(
-        "wandb     : "
-        + ("disabled (--no-wandb)" if args.no_wandb else f"{WANDB_ENTITY}/{WANDB_PROJECT}")
-    )
     if args.dry_run:
         for j in todo[:12]:
             print("   ", {k: j[k] for k in KEY})

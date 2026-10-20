@@ -74,6 +74,7 @@ def decipher(
     axis_type="arrow",
     figsize=(5, 5),
     vmax=lambda xs: np.quantile(xs[~np.isnan(xs)], 0.99),
+    batch_label=None,
     **kwargs,
 ):
     """Plot the Decipher v space.
@@ -109,6 +110,11 @@ def decipher(
     vmax : function, optional
         A function that takes a numpy array and returns a float. Used to set the maximum value of
         the colorbar. By default, the 99th percentile of the data is used.
+    batch_label : str, optional
+        Name of the obs column the training batch was taken from (e.g. "sample_id" when the
+        batch key is a copy of it). Panels of a batch-conditioned model are titled
+        "(Batch = <batch_label>)"; without it, "(Batch: <trained batch key>)". A model trained
+        with `batch_conditioning="none"` is titled "(No Batch Correction)" either way.
     **kwargs : dict, optional
         Additional arguments passed to `sc.pl.embedding`.
 
@@ -124,8 +130,10 @@ def decipher(
     """
     # 1. RETRIEVE BATCH INFO
     # We look into the metadata where we stored the batch_key during training
-    decipher_uns = adata.uns.get("decipher", {})
-    trained_batch_key = decipher_uns.get("config", {}).get("batch_key", None)
+    trained_config = adata.uns.get("decipher", {}).get("config", {})
+    trained_batch_key = trained_config.get("batch_key", None)
+    if trained_config.get("batch_conditioning") == "none":
+        trained_batch_key = None
 
     with plt.rc_context({"figure.figsize": figsize}):
         fig = sc.pl.embedding(
@@ -149,9 +157,12 @@ def decipher(
         color_list = color
 
     # Create the batch label string
-    batch_suffix = (
-        f" (Batch: {trained_batch_key})" if trained_batch_key else " (No Batch Correction)"
-    )
+    if not trained_batch_key:
+        batch_suffix = " (No Batch Correction)"
+    elif batch_label:
+        batch_suffix = f" (Batch = {batch_label})"
+    else:
+        batch_suffix = f" (Batch: {trained_batch_key})"
 
     for i, ax in enumerate(fig.axes):
         if ax._label == "<colorbar>":

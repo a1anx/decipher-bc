@@ -23,7 +23,7 @@ decks = importlib.import_module("1008_build_splitfix_decks")
 SIGMA, SEED, DSEEDS = 2.0, 3, [1, 2, 3]
 M5_FIGS = decks.FIGS / "figs_decipher_m5"
 M5_MATCHED_FIGS = decks.FIGS / "m5_matched_start" / "figs_decipher_m5"
-OUT = decks.WRITEUPS / "1008_vspace_model5_models2_vs_m5_sigma2_seed3_bif.pptx"
+OUT = decks.DECKS / "1008_vspace_model5_models2_vs_m5_sigma2_seed3_bif.pptx"
 LEFT_HDR, RIGHT_HDR = "model5, decipher_models2", "model5, decipher_m5"
 
 
