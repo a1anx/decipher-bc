@@ -1,0 +1,4 @@
+view,cells,levels,genes,sil_batch,sd_over_draws
+all 15 samples (14 AML + BM_control),155904,15,3184,0.0477,0.0016
+14 AML samples only,151001,14,3184,0.0459,0.0002
+AML1+AML2+AML3+BM_control (fit E's cells),59499,4,3184,0.082,0.0012
