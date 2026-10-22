@@ -1,0 +1,46 @@
+cell_type,lineage,rank
+HSC,HSC,0
+MK/E prog,erythroid,1
+Proerythroblast,erythroid,2
+Erythroblast,erythroid,3
+Normoblast,erythroid,4
+Reticulocyte,erythroid,5
+B1 B IGKC+,exclude,
+B1 B IGKC-,exclude,
+CD4+ T CD314+ CD45RA+,exclude,
+CD4+ T activated,exclude,
+CD4+ T activated integrinB7+,exclude,
+CD4+ T naive,exclude,
+CD8+ T CD49f+,exclude,
+CD8+ T CD57+ CD45RA+,exclude,
+CD8+ T CD57+ CD45RO+,exclude,
+CD8+ T CD69+ CD45RA+,exclude,
+CD8+ T CD69+ CD45RO+,exclude,
+CD8+ T TIGIT+ CD45RA+,exclude,
+CD8+ T TIGIT+ CD45RO+,exclude,
+CD8+ T naive,exclude,
+CD8+ T naive CD127+ CD26- CD101-,exclude,
+ILC,exclude,
+ILC1,exclude,
+MAIT,exclude,
+NK,exclude,
+NK CD158e1+,exclude,
+Plasma cell IGKC+,exclude,
+Plasma cell IGKC-,exclude,
+Plasmablast IGKC+,exclude,
+Plasmablast IGKC-,exclude,
+T prog cycling,exclude,
+T reg,exclude,
+cDC1,exclude,
+cDC2,exclude,
+dnT,exclude,
+gdT CD158b+,exclude,
+gdT TCRVD2+,exclude,
+pDC,exclude,
+Lymph prog,lymphoid,1
+Transitional B,lymphoid,2
+Naive CD20+ B IGKC+,lymphoid,3
+Naive CD20+ B IGKC-,lymphoid,3
+G/M prog,myeloid,1
+CD14+ Mono,myeloid,2
+CD16+ Mono,myeloid,3

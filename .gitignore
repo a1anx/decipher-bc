@@ -1,11 +1,11 @@
 # Data files
 *.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0803/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0804/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/shift_sigma_sweep/0806/trained/*.h5ad
-!Data/Simulated Data/Simulated Adata/wandb_sigma_sweep/*/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0803/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0804/trained/*.h5ad
+!Simulated Data/Sweeps and Results/shift_sigma_sweep/0806/trained/*.h5ad
 
-Real Data Analysis/Data 1
+Real Data/Data 1
+Real Data/Oetjen Bone Marrow/data/
 
 Data/AML Data/
 
@@ -26,8 +26,6 @@ __pycache__/
 .claude/
 CLAUDE.md
 batch_shift_review_handoff.md
-# wandb
-wandb/
 
 # Claude Code
 .claude/
@@ -39,3 +37,25 @@ CLAUDE.md
 
 # Sweep run logs (can exceed GitHub's 100MB limit)
 *.log
+
+# Test output (ephemeral pytest junit/log artifacts)
+test-results/
+
+# Compressed raw data (e.g. GSE194122 BMMC .h5ad.gz, 616 MB > GitHub's 100 MB limit)
+*.h5ad.gz
+
+# Slide decks (Claude Files/ and sweep decks folders) stay local (each rebuild is ~44 MB)
+Claude Files/**/*.pptx
+Simulated Data/Sweeps and Results/**/decks/*.pptx
+
+# Regenerable sweep run outputs (per-job checkpoints/metrics, v-space figures, smoke runs, ledger backups)
+Simulated Data/Sweeps and Results/**/runs/
+Simulated Data/Sweeps and Results/**/figs_decipher_models3/
+Simulated Data/Sweeps and Results/**/smoke1019_d3/
+Simulated Data/Sweeps and Results/**/*_sweep_log.pre-*.csv
+Simulated Data/Sweeps and Results/**/*_sweep_log.pass1_backup.csv
+
+# Regenerable eval caches (e.g. 1008_bmmc/eval/_cache/)
+_cache/
+Real Data/Spatial NUT Carcinoma Data/1018_nut50k_d3_*/csv/*_vspace.csv
+Real Data/Spatial NUT Carcinoma Data/1018_nut46_*/csv/seed*_vspace.csv

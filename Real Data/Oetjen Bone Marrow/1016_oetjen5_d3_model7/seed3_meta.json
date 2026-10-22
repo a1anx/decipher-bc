@@ -1,0 +1,228 @@
+{
+  "dataset": "oetjen5",
+  "src": "/home/jihyunpark/decipher-bc/Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad",
+  "package": "decipher_models3",
+  "decipher_models3_file": "/tmp/claude-1047/-home-jihyunpark-decipher-bc/66be67da-42bd-4a88-be55-01ce1884ed39/scratchpad/runtree_P04b/decipher_models3/__init__.py",
+  "preset": "model7",
+  "seed": 3,
+  "run_mode": "final",
+  "lambda_overrides": {
+    "lambda_r": 0.1
+  },
+  "lambda_tag": "lr0p1",
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 3,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 6472,
+    "batch_conditioning": "decoder_encoder",
+    "mean_field_v": false,
+    "batch_embedding_mode": "concat_x",
+    "n_batches": 5,
+    "dim_batch_embedding": 8,
+    "batch_key": "batch",
+    "recon_batch": "residual",
+    "prior_batch": "residual",
+    "v_invariance": "none",
+    "lambda_inv": 1.0,
+    "lambda_r": 0.1,
+    "cycle_v": false,
+    "lambda_c": 1.0,
+    "prior": "normal",
+    "n_pseudo_inputs": 100,
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "P",
+    "G",
+    "T",
+    "W",
+    "R"
+  ],
+  "h5ad_sha256": "9571cd270fd6631da163b539d183cdbe2f4da361ae906fa050b3acb140d16d91",
+  "h5ad_sha256_matches": true,
+  "n_cells": 7191,
+  "n_genes": 2000,
+  "run_id": "2026-10-17-22-12-00-concurrent-indigo-occurrence",
+  "weights_from": "best val-NLL epoch (decipher_models3 restore)",
+  "penalty_history": {
+    "prior_residual": [
+      3.447237186460055,
+      5.512008723646107,
+      5.513546981433831,
+      5.633911718236337,
+      6.4814266261487905,
+      6.963029946431075,
+      7.799076967900342,
+      8.467627124030992,
+      8.977070175775207,
+      9.399584789087276,
+      10.133064232250252,
+      10.882240370948717,
+      11.448386400052817,
+      12.316965273111174,
+      12.746480847349261,
+      12.715258503904437,
+      13.223950735413203,
+      13.486671325003746,
+      13.72131326883146,
+      13.779738020188738,
+      13.599505207326153,
+      13.272210310001185,
+      13.288488897946802,
+      13.372820665340612,
+      13.219148125978979,
+      13.400771131609925,
+      13.544029207512883,
+      14.375811784574301,
+      14.365098330053952,
+      14.327109374622307,
+      14.536797929518293,
+      15.009671494512276,
+      14.93847668525016,
+      14.832182988081827,
+      15.053300612043627,
+      14.851718317164053,
+      15.149702515932592,
+      14.858187599937514,
+      14.6250529242034,
+      14.64569898171,
+      15.218100321174848,
+      15.722772097823643,
+      15.390151448769144,
+      15.424303621348768,
+      15.653937330340394,
+      15.829523945798968,
+      15.72858211781719,
+      15.81708821211711,
+      15.789796432646193,
+      15.873449448311684,
+      16.279672820969385,
+      16.217153275367057,
+      16.33462956872317,
+      16.18429742945303,
+      16.516963694355276,
+      16.85124682435895,
+      16.81892537598563,
+      16.742553163282942,
+      16.39071861116013
+    ]
+  },
+  "r2_overall": 0.8920205277130855,
+  "r2_median_per_gene": 0.3453046924083952,
+  "sanity_pass": true,
+  "n_epochs_run": 59,
+  "best_epoch": 48,
+  "best_val_nll": 1055.0550243393602,
+  "final_val_nll": 1055.4064673157163,
+  "pca/batch_asw": 0.8567642569541931,
+  "pca/graph_ilisi": 0.010130439180510653,
+  "pca/graph_connectivity": 0.9983325300098693,
+  "v/batch_asw": 0.7812674118931645,
+  "v/graph_ilisi": 0.3481396929654541,
+  "v/graph_connectivity": 0.9116042657681702,
+  "z/batch_asw": 0.8291082252681248,
+  "z/graph_ilisi": 0.12329633147117397,
+  "z/graph_connectivity": 0.9473894677517434,
+  "v/trajectory_conservation/erythroid": 0.5704159869161208,
+  "z/trajectory_conservation/erythroid": 0.8014107320145918,
+  "v/decipher_time_conservation/erythroid": 0.8649129865556439,
+  "v/trajectory_conservation/myeloid": 0.8202492539133038,
+  "z/trajectory_conservation/myeloid": 0.9267698697357721,
+  "v/decipher_time_conservation/myeloid": 0.8644356499135428,
+  "batch_emb_norm": {
+    "P": 3.859800100326538,
+    "G": 3.1291000843048096,
+    "T": 2.414599895477295,
+    "W": 2.6679000854492188,
+    "R": 3.7060000896453857
+  },
+  "batch_shift_norm": {
+    "P": 323.985,
+    "G": 326.4681,
+    "T": 328.3286,
+    "W": 340.5309,
+    "R": 337.1359
+  },
+  "batch_shift_norm_centered": {
+    "P": 22.18,
+    "G": 20.0535,
+    "T": 16.8818,
+    "W": 20.9304,
+    "R": 21.0236
+  },
+  "rotation": [
+    [
+      -0.01586596383480761,
+      -0.9998741276738751
+    ],
+    [
+      0.9998741276738751,
+      -0.01586596383480761
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "9",
+      "13",
+      "22",
+      "15",
+      "12",
+      "24"
+    ],
+    "myeloid": [
+      "9",
+      "7",
+      "8",
+      "5",
+      "6"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "9",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "24",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "9",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "6",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "seconds": {
+    "load": 2.1,
+    "train": 182.0,
+    "rotate": 0.6,
+    "decipher_time": 12.3,
+    "metrics": 41.3,
+    "reconstruction": 1.1,
+    "vspace_png": 0.4,
+    "save": 1.8
+  },
+  "seconds_per_epoch": 3.08
+}

@@ -1,0 +1,140 @@
+{
+  "dataset": "oetjen5",
+  "src": "Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad",
+  "package": "decipher_m5",
+  "preset": "model5",
+  "seed": 0,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 0,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 6472,
+    "batch_conditioning": "decoder_encoder",
+    "mean_field_v": false,
+    "n_batches": 5,
+    "batch_key": "batch",
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "P",
+    "G",
+    "T",
+    "W",
+    "R"
+  ],
+  "h5ad_sha256": "9571cd270fd6631da163b539d183cdbe2f4da361ae906fa050b3acb140d16d91",
+  "h5ad_sha256_matches": true,
+  "n_cells": 7191,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-01-41-08-spicy-pink-cut",
+  "weights_from": "best val-NLL epoch (decipher_m5 restore)",
+  "r2_overall": 0.8813989663039223,
+  "r2_median_per_gene": 0.3104204252873344,
+  "sanity_pass": true,
+  "n_epochs_run": 91,
+  "best_epoch": 80,
+  "best_val_nll": 1069.913942976356,
+  "final_val_nll": 1073.1234353268428,
+  "pca/batch_asw": 0.8567642569541931,
+  "pca/graph_ilisi": 0.010130439180510653,
+  "pca/graph_connectivity": 0.9983325300098693,
+  "v/batch_asw": 0.7725486324179643,
+  "v/graph_ilisi": 0.24317536778676918,
+  "v/graph_connectivity": 0.9140208622593761,
+  "z/batch_asw": 0.8071063153500936,
+  "z/graph_ilisi": 0.0742500625906265,
+  "z/graph_connectivity": 0.9457610389133414,
+  "v/trajectory_conservation/erythroid": 0.49660348659620546,
+  "z/trajectory_conservation/erythroid": 0.5219522430007327,
+  "v/decipher_time_conservation/erythroid": 0.7538401529128191,
+  "v/trajectory_conservation/myeloid": 0.8971320497043624,
+  "z/trajectory_conservation/myeloid": 0.8947553915989851,
+  "v/decipher_time_conservation/myeloid": 0.9110003111293248,
+  "batch_shift_norm": {
+    "P": 16.625699996948242,
+    "G": 17.111400604248047,
+    "T": 18.211299896240234,
+    "W": 21.214000701904297,
+    "R": 21.290000915527344
+  },
+  "rotation": [
+    [
+      0.9029265382866211,
+      -0.4297949120891719
+    ],
+    [
+      0.4297949120891719,
+      0.9029265382866211
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "3",
+      "8",
+      "12",
+      "18",
+      "16",
+      "1",
+      "14",
+      "7",
+      "2",
+      "6",
+      "10",
+      "15",
+      "21"
+    ],
+    "myeloid": [
+      "3",
+      "5",
+      "13"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "3",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "21",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "3",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "13",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "seconds": {
+    "load": 3.1,
+    "train": 321.1,
+    "rotate": 0.5,
+    "decipher_time": 11.6,
+    "metrics": 39.0,
+    "reconstruction": 0.9,
+    "vspace_png": 0.4,
+    "save": 0.2
+  },
+  "seconds_per_epoch": 3.53
+}

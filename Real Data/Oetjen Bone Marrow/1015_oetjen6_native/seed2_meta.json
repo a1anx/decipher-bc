@@ -1,0 +1,110 @@
+{
+  "scdecipher": "0.1.2",
+  "seed": 2,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 2,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 7962,
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "h5ad_sha256": "2d00ccb59be49be8f060d2e95e9c23be720c233b8ac1507489af8ea34d22678d",
+  "h5ad_sha256_matches": true,
+  "n_cells": 8845,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-01-14-58-binary-excited-path",
+  "r2_overall": 0.8824442157602586,
+  "r2_median_per_gene": 0.32848241228128783,
+  "sanity_pass": true,
+  "n_epochs_run": 79,
+  "best_epoch": 68,
+  "final_val_nll": 1022.0179784824462,
+  "pca/batch_asw": 0.8881359100341797,
+  "pca/graph_ilisi": 0.07498534545427131,
+  "pca/graph_connectivity": 0.9988455290857711,
+  "v/batch_asw": 0.7808624773316398,
+  "v/graph_ilisi": 0.3227963270685268,
+  "v/graph_connectivity": 0.9356308522479114,
+  "z/batch_asw": 0.8313549538482019,
+  "z/graph_ilisi": 0.21022934504873786,
+  "z/graph_connectivity": 0.9939876702455234,
+  "v/trajectory_conservation/erythroid": 0.6288669162861831,
+  "z/trajectory_conservation/erythroid": 0.9707336016882799,
+  "v/decipher_time_conservation/erythroid": 0.5448785749748695,
+  "v/trajectory_conservation/myeloid": 0.6179088223522515,
+  "z/trajectory_conservation/myeloid": 0.9698285909461513,
+  "v/decipher_time_conservation/myeloid": 0.9381453384490726,
+  "rotation": [
+    [
+      -0.20480666806519074,
+      -0.9788024462147787
+    ],
+    [
+      -0.9788024462147787,
+      0.20480666806519074
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "20",
+      "21",
+      "3",
+      "8",
+      "22"
+    ],
+    "myeloid": [
+      "20",
+      "9",
+      "19",
+      "24",
+      "15",
+      "10"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "20",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "22",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "20",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "10",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "seconds": {
+    "load": 3.2,
+    "train": 332.0,
+    "rotate": 0.6,
+    "decipher_time": 52.4,
+    "metrics": 88.0,
+    "reconstruction": 2.2,
+    "vspace_png": 0.8,
+    "save": 0.4
+  },
+  "seconds_per_epoch": 4.2
+}

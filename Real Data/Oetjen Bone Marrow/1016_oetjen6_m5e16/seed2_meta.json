@@ -1,0 +1,147 @@
+{
+  "dataset": "oetjen6",
+  "src": "/home/jihyunpark/decipher-bc/Real Data/Oetjen Bone Marrow/1015_oetjen6/oetjen6_shared.h5ad",
+  "package": "decipher_m5",
+  "preset": "model5e",
+  "seed": 2,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 2,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 7962,
+    "batch_conditioning": "decoder_encoder",
+    "batch_context": "embedding",
+    "dim_batch_embedding": 16,
+    "mean_field_v": false,
+    "n_batches": 6,
+    "batch_key": "batch",
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "A",
+    "U",
+    "J",
+    "M",
+    "P",
+    "G"
+  ],
+  "h5ad_sha256": "2d00ccb59be49be8f060d2e95e9c23be720c233b8ac1507489af8ea34d22678d",
+  "h5ad_sha256_matches": true,
+  "n_cells": 8845,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-16-37-16-direct-denim-mean",
+  "weights_from": "best val-NLL epoch (decipher_m5 restore)",
+  "r2_overall": 0.8851964374027023,
+  "r2_median_per_gene": 0.3461903887406311,
+  "sanity_pass": true,
+  "n_epochs_run": 69,
+  "best_epoch": 58,
+  "best_val_nll": 1012.4543459796149,
+  "final_val_nll": 1012.4934881087203,
+  "pca/batch_asw": 0.8881358504295349,
+  "pca/graph_ilisi": 0.07498562136708413,
+  "pca/graph_connectivity": 0.9988455290857711,
+  "v/batch_asw": 0.7509996495596994,
+  "v/graph_ilisi": 0.3812743315037096,
+  "v/graph_connectivity": 0.9022824064713286,
+  "z/batch_asw": 0.8041742115771648,
+  "z/graph_ilisi": 0.27613762181370777,
+  "z/graph_connectivity": 0.9540620414996429,
+  "v/trajectory_conservation/erythroid": 0.7518133402322044,
+  "z/trajectory_conservation/erythroid": 0.88316991595933,
+  "v/decipher_time_conservation/erythroid": 0.5720482885279901,
+  "v/trajectory_conservation/myeloid": 0.6365362945906473,
+  "z/trajectory_conservation/myeloid": 0.9031555004146791,
+  "v/decipher_time_conservation/myeloid": 0.88007979716864,
+  "batch_shift_norm": {
+    "A": 89.8280029296875,
+    "U": 100.46610260009766,
+    "J": 94.02149963378906,
+    "M": 94.51110076904297,
+    "P": 99.36360168457031,
+    "G": 92.50759887695312
+  },
+  "batch_emb_norm": {
+    "A": 2.110100030899048,
+    "U": 2.4030001163482666,
+    "J": 2.256700038909912,
+    "M": 2.3945000171661377,
+    "P": 2.2385001182556152,
+    "G": 2.271199941635132
+  },
+  "rotation": [
+    [
+      0.7660444431189778,
+      0.6427876096865396
+    ],
+    [
+      0.6427876096865396,
+      -0.7660444431189778
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "7",
+      "1",
+      "6",
+      "14",
+      "24",
+      "13"
+    ],
+    "myeloid": [
+      "7",
+      "19",
+      "15",
+      "21",
+      "2"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "7",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "13",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "7",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "2",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "seconds": {
+    "load": 3.5,
+    "train": 383.7,
+    "rotate": 1.2,
+    "decipher_time": 58.6,
+    "metrics": 105.7,
+    "reconstruction": 1.8,
+    "vspace_png": 0.7,
+    "save": 0.5
+  },
+  "seconds_per_epoch": 5.56
+}

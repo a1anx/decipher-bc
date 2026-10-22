@@ -1,0 +1,140 @@
+{
+  "dataset": "oetjen5",
+  "src": "Real Data/Oetjen Bone Marrow/1016_oetjen5/oetjen5_shared.h5ad",
+  "package": "decipher_m5",
+  "preset": "model5",
+  "seed": 1,
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.1,
+    "seed": 1,
+    "learning_rate": 0.001,
+    "val_frac": 0.1,
+    "batch_size": 64,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 2000,
+    "n_cells": 6472,
+    "batch_conditioning": "decoder_encoder",
+    "mean_field_v": false,
+    "n_batches": 5,
+    "batch_key": "batch",
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "sample",
+  "batch_levels": [
+    "P",
+    "G",
+    "T",
+    "W",
+    "R"
+  ],
+  "h5ad_sha256": "9571cd270fd6631da163b539d183cdbe2f4da361ae906fa050b3acb140d16d91",
+  "h5ad_sha256_matches": true,
+  "n_cells": 7191,
+  "n_genes": 2000,
+  "run_id": "2026-10-16-01-39-29-greasy-livid-meat",
+  "weights_from": "best val-NLL epoch (decipher_m5 restore)",
+  "r2_overall": 0.8820995191067387,
+  "r2_median_per_gene": 0.3023420373737008,
+  "sanity_pass": true,
+  "n_epochs_run": 78,
+  "best_epoch": 67,
+  "best_val_nll": 1072.2054068150208,
+  "final_val_nll": 1073.5267732962448,
+  "pca/batch_asw": 0.8567642569541931,
+  "pca/graph_ilisi": 0.010130439180510653,
+  "pca/graph_connectivity": 0.9983325300098693,
+  "v/batch_asw": 0.7682054593754106,
+  "v/graph_ilisi": 0.26278314852781415,
+  "v/graph_connectivity": 0.8495505674068017,
+  "z/batch_asw": 0.8034522428787966,
+  "z/graph_ilisi": 0.08036822353401818,
+  "z/graph_connectivity": 0.944755063241478,
+  "v/trajectory_conservation/erythroid": 0.5822566202921107,
+  "z/trajectory_conservation/erythroid": 0.5838617109638937,
+  "v/decipher_time_conservation/erythroid": 0.6814458102863643,
+  "v/trajectory_conservation/myeloid": 0.8742023039898559,
+  "z/trajectory_conservation/myeloid": 0.9192276212999623,
+  "v/decipher_time_conservation/myeloid": 0.8852309952500006,
+  "batch_shift_norm": {
+    "P": 15.397700309753418,
+    "G": 15.630499839782715,
+    "T": 16.206199645996094,
+    "W": 18.045000076293945,
+    "R": 18.234699249267578
+  },
+  "rotation": [
+    [
+      0.766044443118978,
+      0.6427876096865393
+    ],
+    [
+      -0.6427876096865393,
+      0.766044443118978
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "erythroid": [
+      "4",
+      "13",
+      "7",
+      "17",
+      "1",
+      "14",
+      "2",
+      "6",
+      "20",
+      "16",
+      "11",
+      "15"
+    ],
+    "myeloid": [
+      "4",
+      "9",
+      "19",
+      "10"
+    ]
+  },
+  "sanity": {
+    "erythroid_start": {
+      "cluster": "4",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "erythroid_end": {
+      "cluster": "15",
+      "majority": "Erythrocytes",
+      "pass": true
+    },
+    "myeloid_start": {
+      "cluster": "4",
+      "majority": "HSPCs",
+      "pass": true
+    },
+    "myeloid_end": {
+      "cluster": "10",
+      "majority": "CD14+ Monocytes",
+      "pass": true
+    },
+    "pass": true
+  },
+  "seconds": {
+    "load": 3.3,
+    "train": 223.4,
+    "rotate": 0.5,
+    "decipher_time": 11.9,
+    "metrics": 40.6,
+    "reconstruction": 1.6,
+    "vspace_png": 0.8,
+    "save": 0.4
+  },
+  "seconds_per_epoch": 2.86
+}
