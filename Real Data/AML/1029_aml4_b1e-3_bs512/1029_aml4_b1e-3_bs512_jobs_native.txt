@@ -1,0 +1,4 @@
+# native (PyPI scdecipher), seeds 0-2, beta 1e-3, batch 512, lr 5e-3
+--seed 0 --beta 1e-3 --batch-size 512 --out-dir native
+--seed 1 --beta 1e-3 --batch-size 512 --out-dir native
+--seed 2 --beta 1e-3 --batch-size 512 --out-dir native

@@ -1,0 +1,10 @@
+# model5, model4r, model5r x seeds 0-2, beta 1e-3, batch 512, lr 5e-3
+--preset model5 --seed 0 --beta 1e-3 --batch-size 512 --out-dir model5
+--preset model5 --seed 1 --beta 1e-3 --batch-size 512 --out-dir model5
+--preset model5 --seed 2 --beta 1e-3 --batch-size 512 --out-dir model5
+--preset model4r --seed 0 --beta 1e-3 --batch-size 512 --out-dir model4r
+--preset model4r --seed 1 --beta 1e-3 --batch-size 512 --out-dir model4r
+--preset model4r --seed 2 --beta 1e-3 --batch-size 512 --out-dir model4r
+--preset model5r --seed 0 --beta 1e-3 --batch-size 512 --out-dir model5r
+--preset model5r --seed 1 --beta 1e-3 --batch-size 512 --out-dir model5r
+--preset model5r --seed 2 --beta 1e-3 --batch-size 512 --out-dir model5r
