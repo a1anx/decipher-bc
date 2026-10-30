@@ -1,0 +1,175 @@
+{
+  "dataset": "aml4",
+  "src": "aml4/aml4_shared.h5ad",
+  "package": "decipher_models3",
+  "decipher_models3_file": "decipher_models3/__init__.py",
+  "preset": "model4r",
+  "seed": 0,
+  "run_mode": null,
+  "lambda_overrides": {},
+  "lambda_tag": null,
+  "hyperparameters": {
+    "learning_rate": 0.005,
+    "beta": 0.001,
+    "batch_size": 512
+  },
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.001,
+    "seed": 0,
+    "learning_rate": 0.005,
+    "val_frac": 0.1,
+    "batch_size": 512,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 6341,
+    "n_cells": 58322,
+    "batch_conditioning": "decoder_only",
+    "mean_field_v": false,
+    "batch_embedding_mode": "concat_x",
+    "n_batches": 4,
+    "dim_batch_embedding": 8,
+    "batch_key": "batch",
+    "batch_levels": [
+      "AML1",
+      "AML2",
+      "AML3",
+      "AML4"
+    ],
+    "recon_batch": "residual",
+    "batch_emb_init": "auto",
+    "residual_hidden": null,
+    "prior_batch": "none",
+    "v_invariance": "none",
+    "lambda_inv": 1.0,
+    "lambda_r": 1.0,
+    "cycle_v": false,
+    "lambda_c": 1.0,
+    "prior": "normal",
+    "n_pseudo_inputs": 100,
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "patient",
+  "batch_levels": [
+    "AML1",
+    "AML2",
+    "AML3",
+    "AML4"
+  ],
+  "h5ad_sha256": "13d1d8ab43e5c66c0fa35fd6d6c6247f0f230611095095d54750baba0e12d555",
+  "h5ad_sha256_matches": true,
+  "n_cells": 64803,
+  "n_genes": 6341,
+  "run_id": "2026-10-29-22-12-50-doughy-rosy-heap",
+  "weights_from": "best val-NLL epoch (decipher_models3 restore)",
+  "penalty_history": {},
+  "r2_overall": 0.6014663658255756,
+  "r2_median_per_gene": 0.14156203741259565,
+  "sanity_pass": true,
+  "time_vs_stage_spearman": 0.9512360532375607,
+  "n_epochs_run": 51,
+  "best_epoch": 40,
+  "best_val_nll": 3558.3252584477705,
+  "final_val_nll": 3561.2288227125446,
+  "pca/batch_asw": 0.7945196628570557,
+  "pca/graph_ilisi": 7.401486830834377e-17,
+  "pca/graph_connectivity": 0.9984037667952631,
+  "v/batch_asw": 0.7316458738401843,
+  "v/graph_ilisi": 0.33332682009918946,
+  "v/graph_connectivity": 0.953796495935157,
+  "z/batch_asw": 0.8419932366256184,
+  "z/graph_ilisi": 0.16046108915536328,
+  "z/graph_connectivity": 0.993938074715936,
+  "pca/trajectory_conservation/leukemic": 0.9590097662725205,
+  "v/trajectory_conservation/leukemic": 0.45098302934578316,
+  "z/trajectory_conservation/leukemic": 0.980947092941943,
+  "v/decipher_time_conservation/leukemic": 0.9756180266187804,
+  "v/decipher_time_stage_spearman/leukemic": 0.9512360532375607,
+  "v/decipher_time_stage_spearman/leukemic_AML1": 0.9479016091782334,
+  "v/decipher_time_stage_spearman/leukemic_AML2": 0.926371588865865,
+  "v/decipher_time_stage_spearman/leukemic_AML3": 0.9127189950272736,
+  "v/decipher_time_stage_spearman/leukemic_AML4": 0.9214571814991174,
+  "batch_emb_norm": {
+    "AML1": 2.4935998916625977,
+    "AML2": 2.422100067138672,
+    "AML3": 2.8378000259399414,
+    "AML4": 3.1749000549316406
+  },
+  "batch_shift_norm": {
+    "AML1": 179.3089,
+    "AML2": 171.793,
+    "AML3": 176.2191,
+    "AML4": 162.443
+  },
+  "batch_shift_norm_centered": {
+    "AML1": 31.367,
+    "AML2": 24.2746,
+    "AML3": 21.883,
+    "AML4": 30.3501
+  },
+  "rotation": [
+    [
+      -0.32706796331742166,
+      0.9450008187146685
+    ],
+    [
+      -0.9450008187146685,
+      -0.32706796331742166
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "leukemic": [
+      "10",
+      "5",
+      "3",
+      "15",
+      "16",
+      "4",
+      "1"
+    ]
+  },
+  "trajectory": {
+    "start_cluster": "10",
+    "end_cluster": "1",
+    "endpoint_conflict": false,
+    "path_cluster_ids": [
+      "10",
+      "5",
+      "3",
+      "15",
+      "16",
+      "4",
+      "1"
+    ],
+    "n_path_cells": 25948,
+    "time_vs_stage_spearman": 0.9512360532375607,
+    "time_vs_stage_spearman_by_patient": {
+      "AML1": 0.9479016091782334,
+      "AML2": 0.926371588865865,
+      "AML3": 0.9127189950272736,
+      "AML4": 0.9214571814991174
+    },
+    "sanity_pass": true
+  },
+  "metric_subsample_n": 10000,
+  "batch_asw_skipped_labels": [
+    "immature_myelo"
+  ],
+  "seconds": {
+    "load": 4.0,
+    "train": 3169.0,
+    "rotate": 6.4,
+    "decipher_time": 76.1,
+    "metrics": 95.8,
+    "reconstruction": 3.4,
+    "vspace_png": 2.4,
+    "save": 32.8
+  },
+  "seconds_per_epoch": 62.14
+}

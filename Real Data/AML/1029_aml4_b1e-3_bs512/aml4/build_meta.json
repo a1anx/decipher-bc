@@ -1,0 +1,26 @@
+{
+  "source": "../AML1-4_preprocessed.h5ad",
+  "source_sha256": "cc93bb14a0b6b7ce6da9a52bd820ede13672794ca46751987d3a99a6a051d072",
+  "n_obs": 64803,
+  "n_genes": 6341,
+  "nnz": 84555295,
+  "split_seed": 0,
+  "val_fraction": 0.1,
+  "n_val": 6481,
+  "batch_levels": [
+    "AML1",
+    "AML2",
+    "AML3",
+    "AML4"
+  ],
+  "stage_order": [
+    "immature",
+    "blast0",
+    "blast1",
+    "blast2",
+    "blast3"
+  ],
+  "n_unranked": 1079,
+  "genes": "all (no HVG subset)",
+  "wall_seconds": 6.5
+}

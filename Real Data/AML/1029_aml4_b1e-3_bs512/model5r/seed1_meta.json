@@ -1,0 +1,175 @@
+{
+  "dataset": "aml4",
+  "src": "aml4/aml4_shared.h5ad",
+  "package": "decipher_models3",
+  "decipher_models3_file": "decipher_models3/__init__.py",
+  "preset": "model5r",
+  "seed": 1,
+  "run_mode": null,
+  "lambda_overrides": {},
+  "lambda_tag": null,
+  "hyperparameters": {
+    "learning_rate": 0.005,
+    "beta": 0.001,
+    "batch_size": 512
+  },
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.001,
+    "seed": 1,
+    "learning_rate": 0.005,
+    "val_frac": 0.1,
+    "batch_size": 512,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 6341,
+    "n_cells": 58322,
+    "batch_conditioning": "decoder_encoder",
+    "mean_field_v": false,
+    "batch_embedding_mode": "concat_x",
+    "n_batches": 4,
+    "dim_batch_embedding": 8,
+    "batch_key": "batch",
+    "batch_levels": [
+      "AML1",
+      "AML2",
+      "AML3",
+      "AML4"
+    ],
+    "recon_batch": "residual",
+    "batch_emb_init": "auto",
+    "residual_hidden": null,
+    "prior_batch": "none",
+    "v_invariance": "none",
+    "lambda_inv": 1.0,
+    "lambda_r": 1.0,
+    "cycle_v": false,
+    "lambda_c": 1.0,
+    "prior": "normal",
+    "n_pseudo_inputs": 100,
+    "_initialized_from_adata": true
+  },
+  "batch_key": "batch",
+  "batch_source": "patient",
+  "batch_levels": [
+    "AML1",
+    "AML2",
+    "AML3",
+    "AML4"
+  ],
+  "h5ad_sha256": "13d1d8ab43e5c66c0fa35fd6d6c6247f0f230611095095d54750baba0e12d555",
+  "h5ad_sha256_matches": true,
+  "n_cells": 64803,
+  "n_genes": 6341,
+  "run_id": "2026-10-30-00-47-54-smoked-emerald-taco",
+  "weights_from": "best val-NLL epoch (decipher_models3 restore)",
+  "penalty_history": {},
+  "r2_overall": 0.6019927513786794,
+  "r2_median_per_gene": 0.14199163484420574,
+  "sanity_pass": true,
+  "time_vs_stage_spearman": 0.9283906772253001,
+  "n_epochs_run": 46,
+  "best_epoch": 35,
+  "best_val_nll": 3558.8791853109087,
+  "final_val_nll": 3559.031939515507,
+  "pca/batch_asw": 0.7945196628570557,
+  "pca/graph_ilisi": 7.401486830834377e-17,
+  "pca/graph_connectivity": 0.9984037667952631,
+  "v/batch_asw": 0.745017743762561,
+  "v/graph_ilisi": 0.3248662338269434,
+  "v/graph_connectivity": 0.957093995202758,
+  "z/batch_asw": 0.8168784726450132,
+  "z/graph_ilisi": 0.08998108805322214,
+  "z/graph_connectivity": 0.997236181326843,
+  "pca/trajectory_conservation/leukemic": 0.9590097662725205,
+  "v/trajectory_conservation/leukemic": 0.5363574882094959,
+  "z/trajectory_conservation/leukemic": 0.9805733321815946,
+  "v/decipher_time_conservation/leukemic": 0.96419533861265,
+  "v/decipher_time_stage_spearman/leukemic": 0.9283906772253001,
+  "v/decipher_time_stage_spearman/leukemic_AML1": 0.9397230185515814,
+  "v/decipher_time_stage_spearman/leukemic_AML2": 0.9256856543030959,
+  "v/decipher_time_stage_spearman/leukemic_AML3": 0.8662776191942148,
+  "v/decipher_time_stage_spearman/leukemic_AML4": 0.8976817117018168,
+  "batch_emb_norm": {
+    "AML1": 2.233299970626831,
+    "AML2": 3.0360000133514404,
+    "AML3": 1.5351999998092651,
+    "AML4": 1.8529000282287598
+  },
+  "batch_shift_norm": {
+    "AML1": 152.3099,
+    "AML2": 145.0175,
+    "AML3": 154.6861,
+    "AML4": 151.5103
+  },
+  "batch_shift_norm_centered": {
+    "AML1": 32.3968,
+    "AML2": 24.2298,
+    "AML3": 21.9595,
+    "AML4": 29.5998
+  },
+  "rotation": [
+    [
+      -0.20480666806519054,
+      -0.9788024462147787
+    ],
+    [
+      0.9788024462147787,
+      -0.20480666806519054
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "leukemic": [
+      "3",
+      "12",
+      "0",
+      "21",
+      "2",
+      "14",
+      "4"
+    ]
+  },
+  "trajectory": {
+    "start_cluster": "3",
+    "end_cluster": "4",
+    "endpoint_conflict": false,
+    "path_cluster_ids": [
+      "3",
+      "12",
+      "0",
+      "21",
+      "2",
+      "14",
+      "4"
+    ],
+    "n_path_cells": 25935,
+    "time_vs_stage_spearman": 0.9283906772253001,
+    "time_vs_stage_spearman_by_patient": {
+      "AML1": 0.9397230185515814,
+      "AML2": 0.9256856543030959,
+      "AML3": 0.8662776191942148,
+      "AML4": 0.8976817117018168
+    },
+    "sanity_pass": true
+  },
+  "metric_subsample_n": 10000,
+  "batch_asw_skipped_labels": [
+    "immature_myelo"
+  ],
+  "seconds": {
+    "load": 3.8,
+    "train": 2987.1,
+    "rotate": 12.8,
+    "decipher_time": 68.1,
+    "metrics": 96.1,
+    "reconstruction": 3.6,
+    "vspace_png": 2.4,
+    "save": 39.6
+  },
+  "seconds_per_epoch": 64.94
+}

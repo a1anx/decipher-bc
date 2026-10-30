@@ -1,0 +1,127 @@
+{
+  "dataset": "aml4",
+  "src": "aml4/aml4_shared.h5ad",
+  "package": "scdecipher",
+  "scdecipher": "0.1.2",
+  "preset": "native",
+  "seed": 2,
+  "hyperparameters": {
+    "learning_rate": 0.005,
+    "beta": 0.001,
+    "batch_size": 512,
+    "dim_z": 10
+  },
+  "config": {
+    "dim_z": 10,
+    "dim_v": 2,
+    "layers_v_to_z": [
+      64
+    ],
+    "layers_z_to_x": [],
+    "beta": 0.001,
+    "seed": 2,
+    "learning_rate": 0.005,
+    "val_frac": 0.1,
+    "batch_size": 512,
+    "n_epochs": 1000,
+    "early_stopping_patience": 10,
+    "dim_genes": 6341,
+    "n_cells": 58322,
+    "prior": "normal",
+    "_initialized_from_adata": true
+  },
+  "batch_source": null,
+  "h5ad_sha256": "13d1d8ab43e5c66c0fa35fd6d6c6247f0f230611095095d54750baba0e12d555",
+  "h5ad_sha256_matches": true,
+  "n_cells": 64803,
+  "n_genes": 6341,
+  "run_id": "2026-10-29-21-10-30-brownian-mad-array",
+  "weights_from": "last epoch (the package does not restore the best)",
+  "r2_overall": 0.5685053365156828,
+  "r2_median_per_gene": 0.10470383047391252,
+  "sanity_pass": true,
+  "time_vs_stage_spearman": 0.9543660511756286,
+  "n_epochs_run": 49,
+  "best_epoch": 38,
+  "best_val_nll": 3619.6926400246875,
+  "final_val_nll": 3621.3778737849098,
+  "pca/batch_asw": 0.7945197224617004,
+  "pca/graph_ilisi": 7.401486830834377e-17,
+  "pca/graph_connectivity": 0.9984037667952631,
+  "v/batch_asw": 0.5490612628989059,
+  "v/graph_ilisi": 0.03636973016095165,
+  "v/graph_connectivity": 0.979507408072014,
+  "z/batch_asw": 0.6920736941556733,
+  "z/graph_ilisi": 0.000835999357944169,
+  "z/graph_connectivity": 0.9970502136656406,
+  "pca/trajectory_conservation/leukemic": 0.9590067623095165,
+  "v/trajectory_conservation/leukemic": 0.3138575415525643,
+  "z/trajectory_conservation/leukemic": 0.9786554947672267,
+  "v/decipher_time_conservation/leukemic": 0.9771830255878142,
+  "v/decipher_time_stage_spearman/leukemic": 0.9543660511756286,
+  "v/decipher_time_stage_spearman/leukemic_AML1": 0.9495699653552799,
+  "v/decipher_time_stage_spearman/leukemic_AML2": 0.9281896915560194,
+  "v/decipher_time_stage_spearman/leukemic_AML3": 0.9171811339927259,
+  "v/decipher_time_stage_spearman/leukemic_AML4": 0.9235548381991886,
+  "rotation": [
+    [
+      0.1108381999010111,
+      0.9938384644612541
+    ],
+    [
+      -0.9938384644612541,
+      0.1108381999010111
+    ]
+  ],
+  "trajectory_cluster_ids": {
+    "leukemic": [
+      "6",
+      "21",
+      "0",
+      "18",
+      "9",
+      "5",
+      "12",
+      "1"
+    ]
+  },
+  "trajectory": {
+    "start_cluster": "6",
+    "end_cluster": "1",
+    "endpoint_conflict": false,
+    "path_cluster_ids": [
+      "6",
+      "21",
+      "0",
+      "18",
+      "9",
+      "5",
+      "12",
+      "1"
+    ],
+    "n_path_cells": 25321,
+    "time_vs_stage_spearman": 0.9543660511756286,
+    "time_vs_stage_spearman_by_patient": {
+      "AML1": 0.9495699653552799,
+      "AML2": 0.9281896915560194,
+      "AML3": 0.9171811339927259,
+      "AML4": 0.9235548381991886
+    },
+    "sanity_pass": true
+  },
+  "metric_subsample_n": 10000,
+  "batch_asw_skipped_labels": [
+    "immature_myelo"
+  ],
+  "seconds": {
+    "load": 4.0,
+    "train": 2897.4,
+    "rotate": 5.6,
+    "decipher_time": 69.2,
+    "metrics": 96.0,
+    "reconstruction": 3.0,
+    "vspace_png": 2.3,
+    "save": 1.1
+  },
+  "seconds_per_epoch": 59.13
+}
